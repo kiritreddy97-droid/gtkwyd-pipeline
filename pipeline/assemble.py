@@ -142,17 +142,21 @@ def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
         filt.append(f"[0:v]ass={ass_arg}[v]")
         vlabel = "[v]"
 
-    # Audio: even out the narration level, keep music as a quiet high-passed bed
-    # (so it never fights the voice), then loudness-normalise the mix to
-    # YouTube's -14 LUFS target so every upload sounds consistent and clear.
+    # Audio: even out the narration level, then - if there's music - duck it
+    # with real sidechain compression keyed off the voice, so it swells up
+    # audibly in the gaps and steps aside (not silent) while someone's
+    # talking, instead of sitting at one flat, easy-to-miss volume throughout.
     if music is not None and Path(music).exists():
         cmd += ["-stream_loop", "-1", "-i", str(Path(music).resolve())]
         fade_st = max(0.1, total - 2.5)
-        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8[voc]")
+        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8,"
+                    "asplit=2[voc][vsc]")
         filt.append(
-            f"[1:a]aresample=48000,highpass=f=110,volume={mv:.3f},"
-            f"afade=t=in:st=0:d=1.5,afade=t=out:st={fade_st:.2f}:d=2.0[bed]")
-        filt.append("[voc][bed]amix=inputs=2:duration=first:weights=1.0 0.85:"
+            f"[1:a]aresample=48000,highpass=f=80,volume={mv:.3f},"
+            f"afade=t=in:st=0:d=1.5,afade=t=out:st={fade_st:.2f}:d=2.0[bed0]")
+        filt.append("[bed0][vsc]sidechaincompress=threshold=0.05:ratio=6:"
+                    "attack=15:release=400:makeup=1[bed]")
+        filt.append("[voc][bed]amix=inputs=2:duration=first:weights=1.0 1.0:"
                     "dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA=11[a]")
     else:
         filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8,"

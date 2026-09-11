@@ -27,9 +27,13 @@ VOICES: dict[str, str] = {
     "en_GB-alan-medium":                "en/en_GB/alan/medium/en_GB-alan-medium",
     "en_GB-northern_english_male-medium": "en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium",
     "en_GB-cori-high":                  "en/en_GB/cori/high/en_GB-cori-high",
+    "en_US-ljspeech-high":              "en/en_US/ljspeech/high/en_US-ljspeech-high",
 }
 
-DEFAULT_VOICE = "en_US-lessac-medium"
+# ljspeech-high: trained on calm, measured audiobook narration - the closest
+# free option to a "soothing" educational voice. All "-high" voices sound
+# noticeably smoother than "-medium"/"-low" of the same speaker.
+DEFAULT_VOICE = "en_US-ljspeech-high"
 
 
 def list_voices() -> None:

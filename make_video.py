@@ -15,7 +15,7 @@ from pathlib import Path
 
 import random
 
-from pipeline import assemble, captions, metadata, tts
+from pipeline import assemble, captions, metadata, music_match, tts
 from pipeline.script_parser import parse_script
 from pipeline.util import (ASSETS_DIR, BUILD_DIR, PipelineError, check_ffmpeg,
                            dims, load_config, slugify)
@@ -23,16 +23,17 @@ from pipeline.visuals import Asset, VisualFetcher
 from pipeline.voices import DEFAULT_VOICE, ensure_voice, list_voices
 
 
-def _pick_music(is_short: bool) -> Path | None:
-    """Random track from your library (assets/music/) or, if that's empty (e.g.
-    a fresh clone / cloud run), the small always-committed assets/cloud-music/."""
+def _pick_music(is_short: bool, title: str = "", tags: list[str] | None = None) -> Path | None:
+    """Mood-matched track from your library (assets/music/) or, if that's
+    empty (e.g. a fresh clone / cloud run), the small always-committed
+    assets/cloud-music/. Falls back to a random pick when nothing matches."""
     kind = "shorts" if is_short else "videos"
     for base in (ASSETS_DIR / "music", ASSETS_DIR / "cloud-music"):
         for candidate in (base / kind, base):
             if candidate.is_dir():
                 pool = sorted(candidate.glob("*.mp3")) + sorted(candidate.glob("*.m4a"))
                 if pool:
-                    return random.choice(pool)
+                    return music_match.pick(pool, title, tags)
     return None
 
 
@@ -134,9 +135,11 @@ def main() -> int:
         else:
             print(f"[music]  {script.music} not found - trying music library")
     if music_path is None:
-        music_path = _pick_music(args.short)
+        music_path = _pick_music(args.short, script.title, script.tags)
     if music_path:
-        print(f"[music]  {music_path.name}")
+        from pipeline import music_match as _mm
+        mood = _mm.target_mood(script.title, script.tags)
+        print(f"[music]  {music_path.name}  (mood: {mood})")
 
     print("[render] final mux ...")
     out_mp4 = BUILD_DIR / slug / f"{slug}.mp4"

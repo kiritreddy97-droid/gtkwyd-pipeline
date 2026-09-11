@@ -15,12 +15,14 @@ pixabay_key = ""
 
 [voice]
 # Run  ./run.ps1 --list-voices  to see all options.
-# amy = warm, friendly, clear - good for a family-friendly channel.
-model = "en_US-amy-medium"
-# >1.0 = slower/calmer narration, <1.0 = faster.
-length_scale = 1.06
-# Silence (seconds) inserted after each sentence.
-sentence_silence = 0.4
+# ljspeech-high = calm, measured audiobook-style narration - the smoothest,
+# most "soothing" free Piper voice. Any "-high" tier voice sounds noticeably
+# less robotic than the same speaker's "-medium"/"-low".
+model = "en_US-ljspeech-high"
+# >1.0 = slower/calmer narration, <1.0 = faster. Slightly slow reads calmer.
+length_scale = 1.12
+# Silence (seconds) inserted after each sentence - more air = calmer pacing.
+sentence_silence = 0.5
 
 [visuals]
 # "video" prefers stock clips, "image" prefers stills with a Ken Burns pan,
@@ -35,10 +37,12 @@ font = "Anton"
 whisper_model = "base"   # tiny | base | small  (bigger = slower, more accurate)
 
 [music]
-# 0.0 - 1.0. Background music level under the narration.
-volume = 0.11
+# 0.0 - 1.0. Peak background music level (it auto-ducks under narration and
+# swells back up in the gaps, so this is louder than the level you'll hear
+# while the voice is talking).
+volume = 0.22
 # Slightly louder for Shorts (music carries them more).
-short_volume = 0.16
+short_volume = 0.28
 
 [auto]
 # Used only by auto.py (the fully-automated runner). See AUTOMATION.md.
