@@ -1,0 +1,62 @@
+# Copy this file to config.toml and fill in your API keys.
+# config.toml is git-ignored so your keys stay private.
+
+[project]
+channel_name = "Get To Know What You Don't"
+# "landscape" = 1920x1080 (normal videos)  |  "portrait" = 1080x1920 (Shorts)
+orientation = "landscape"
+fps = 30
+
+[apis]
+# Free, instant signup:  https://www.pexels.com/api/
+pexels_key = ""
+# Free, instant signup:  https://pixabay.com/api/docs/
+pixabay_key = ""
+
+[voice]
+# Run  ./run.ps1 --list-voices  to see all options.
+# amy = warm, friendly, clear - good for a family-friendly channel.
+model = "en_US-amy-medium"
+# >1.0 = slower/calmer narration, <1.0 = faster.
+length_scale = 1.06
+# Silence (seconds) inserted after each sentence.
+sentence_silence = 0.4
+
+[visuals]
+# "video" prefers stock clips, "image" prefers stills with a Ken Burns pan,
+# "mix" alternates.
+prefer = "video"
+
+[captions]
+enabled = true
+max_words_per_line = 4
+# Any font installed on Windows, or a .ttf placed in assets/fonts/
+font = "Anton"
+whisper_model = "base"   # tiny | base | small  (bigger = slower, more accurate)
+
+[music]
+# 0.0 - 1.0. Background music level under the narration.
+volume = 0.11
+# Slightly louder for Shorts (music carries them more).
+short_volume = 0.16
+
+[auto]
+# Used only by auto.py (the fully-automated runner). See AUTOMATION.md.
+enabled = true
+upload = true
+# "private" (safest) | "unlisted" | "public"
+visibility = "public"
+# true  = AI-written scripts wait in scripts/review/ for your approval
+# false = AI scripts publish straight to YouTube (guardrails are the only net)
+require_review_for_ai = true
+# Hard ceiling on uploads per calendar day (protects against runaway loops).
+max_per_day = 4
+# Local model for the AI writer (must be pulled in Ollama first).
+# llama3.2:3b  - fast (~1-2 min/script), okay accuracy
+# llama3.1:8b  - slower on CPU (~6-12 min), noticeably more reliable facts
+ollama_model = "llama3.2:3b"
+# Second pass: the model reviews its own script and it is rejected if it flags
+# any shaky claim. Cheap insurance when require_review_for_ai = false.
+self_review = true
+# Optional: add every upload to this playlist.
+playlist_id = ""

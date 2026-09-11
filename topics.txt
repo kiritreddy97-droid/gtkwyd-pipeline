@@ -1,0 +1,148 @@
+# Topic queue for the AI writer (auto.py). One topic per line.
+# Lines starting with # and blank lines are ignored. Consumed top to bottom.
+# Keep every topic on-brand: surprising but well-established facts, no
+# medical / financial / political / controversial subjects.
+
+honeybees and how a hive makes decisions
+the deepest parts of the ocean
+how the Moon slowly moves away from Earth
+tardigrades and how they survive extreme conditions
+the Great Wall of China myths and facts
+how glass is actually a slow-moving puzzle of a material
+lightning and how it forms
+the history of the pencil
+why flamingos are pink
+how a passport and border system began
+the size of blue whales
+how spiders make and use silk
+the origin of the QWERTY keyboard
+what actually happens during a hiccup
+how the Sahara was once green
+the invention of the shipping container
+why the sky is blue and sunsets are red
+how bats navigate in the dark
+the history of tea
+how mountains keep growing
+octopus intelligence and camouflage
+how a rainbow forms
+the story of the metric system
+why we have leap years
+how coral reefs are built
+the history of the wristwatch
+how volcanoes create new land
+why cats purr
+the longest rivers in the world
+how paper money replaced coins and barter
+the science of why bread rises
+how penguins stay warm
+the history of the umbrella
+what makes the northern lights
+how ants farm and cooperate
+why the Eiffel Tower changes height with the seasons
+the origin of pizza
+how sharks sense their surroundings
+the history of maps and cartography
+how snowflakes get their shapes
+why we get goosebumps
+the deepest cave systems on Earth
+how bees see ultraviolet patterns on flowers
+the history of the calendar
+how the human eye compares to a camera
+why leaves change colour in autumn
+the story of the lighthouse
+how earthquakes are measured
+the surprising age of some trees
+how migratory birds cross oceans
+the history of soap and hygiene
+why the ocean has tides
+how a spider web survives wind and rain
+the origin of the sandwich
+how deserts form
+why some animals glow in the dark
+the history of the zipper
+how the Panama Canal lifts ships over land
+why we dream
+the science of echoes
+how mushrooms connect forests underground
+the history of chocolate
+how hummingbirds hover
+why ice floats
+the tallest waterfalls on Earth
+how a compass points north
+the history of the traffic light
+how camels handle the desert
+why the Leaning Tower of Pisa leans
+how sound travels differently underwater
+the story of the printing press
+how salt shaped human history
+why we have fingerprints
+the largest deserts that are actually cold
+how a bridge carries its own weight
+the history of the bicycle
+how octopuses change colour without seeing colour
+why the Dead Sea is so salty
+how clouds hold so much water
+the origin of the days of the week names
+how a seed knows which way is up
+the history of glassblowing
+why some islands appear and disappear
+how whales communicate across oceans
+the science of quicksand
+how the pyramids were likely built
+why the platypus is so unusual
+the history of street lighting
+how rivers change course over centuries
+why we yawn
+the story of the escalator
+how a violin makes sound
+the largest living organisms on Earth
+how frost patterns form on windows
+the history of the mirror
+how sea turtles find the same beach years later
+why the horizon is always the same distance away
+how a match ignites
+the history of the wheel
+how mangroves protect coastlines
+why gold has been valued for so long
+how a plane actually generates lift
+the origin of the alphabet
+how fireflies produce light without heat
+why mountains have snow caps in summer
+the history of the clock tower
+how bees make honey from nectar
+why the Nile flows north
+how spider silk compares to steel
+the history of paper
+how the eye adjusts from bright to dark
+why some lakes turn pink
+how a submarine controls its depth
+the story of the first photographs
+how desert plants store water
+why we have two ears and how we locate sound
+the history of the postage stamp
+how a glacier carves a valley
+why penguins are only found in certain regions
+
+# --- what if (grounded thought experiments, real physics only) ---
+what if the Earth were twice as large
+what if there were two moons
+what if the oceans were fresh water
+what if a day were 12 hours long
+what if the Earth had rings like Saturn
+what if humans could photosynthesise
+what if the poles and equator swapped climates
+what if sound could travel through space
+what if the Moon were as close as the space station
+what if Earth had no atmosphere for one minute
+
+# --- what happens when (real outcomes, curiosity driven) ---
+what happens when you drop something down the deepest hole on Earth
+what happens when lightning strikes the ocean
+what happens when you shine a torch at the Moon
+what happens to a metal spoon in a microwave and why
+what happens when a river meets the sea
+what happens when you spin in space with no wall to push
+what happens to sound as you climb a mountain
+what happens when two galaxies collide
+what happens when you freeze a soap bubble
+what happens to your voice in a room full of helium and why

@@ -1,0 +1,49 @@
+# Topics for AI-generated SHORTS (used only after shorts-bank/ is exhausted).
+# One per line. Punchy, single-idea, works in 40 seconds.
+
+the Baader-Meinhof frequency illusion
+why the placebo response is so strong
+the Zeigarnik effect and unfinished tasks
+Benford's law and why fake numbers get caught
+the spotlight effect and feeling watched
+why we anthropomorphise everything
+the McGurk effect and how sight changes sound
+the Mandela effect and false shared memories
+the illusion of explanatory depth
+loss aversion and why losses hurt more
+the halo effect in first impressions
+why the brain edits out your nose
+change blindness and missing the obvious
+the Stroop effect and reading interference
+the Pomodoro idea and attention spans
+why crowds fall into step on bridges
+the observer effect in everyday measurement
+the birthday paradox in a room of 23
+why the number seven feels special
+the uncanny valley in robots and animation
+how noise-cancelling headphones use anti-sound
+why touchscreens do not work with gloves
+the science of why cats always land upright
+how a zip actually locks together
+why the ocean looks blue but water is clear
+the Coriolis effect and which way storms spin
+why a spinning top does not fall over
+how a microwave heats water but not the plate
+why old films show wheels spinning backward
+the reason yawns feel contagious
+how carrier pigeons found their way home
+the lost Roman recipe for a purple dye
+the library of Alexandria and what was really lost
+the first photograph ever taken of a person
+how the metric metre was originally defined
+why Greenland looks bigger than Africa on maps
+the real reason a week has seven days
+how the QWERTY layout slowed typists on purpose
+the man who survived two atomic bombings
+the Voynich manuscript nobody can read
+how a compass works and why it is slowly wrong
+the AI that learned to play games with no rules given
+why large language models sometimes make things up
+the first computer bug was a real moth
+how facial recognition actually maps a face
+the Turing test and what it does not prove

@@ -1,0 +1,30 @@
+# local-only runtime (downloaded/generated fresh by setup / CI each time)
+.venv/
+piper/
+models/
+cache/
+build/
+__pycache__/
+*.pyc
+
+# secrets - never commit. CI gets these from GitHub Secrets instead.
+config.toml
+client_secret*.json*
+*.apps.googleusercontent.com.json
+youtube_token.json
+
+# your personal, full local music library (large; CI uses assets/cloud-music/
+# instead - a small curated set that IS committed)
+assets/music/*
+!assets/music/README.md
+
+# run-local noise (CI captures its own logs; the lock is meaningless across
+# ephemeral runs). history.jsonl, topics_used.txt, and scripts/{ready,review,
+# shorts-ready,shorts-review,published,_generated*} ARE tracked - the cloud
+# workflow commits updates to them so the next run knows what's been used.
+auto.log
+auto.lock
+
+# scratch files
+scratch_*.py
+

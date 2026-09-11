@@ -1,0 +1,135 @@
+name: publish
+
+# Times below are UTC. The repo was set up for Mountain Time (UTC-6 MDT /
+# UTC-7 MST) targeting 09:00 / 10:00 / 15:00 / 15:30 local. Cron is fixed UTC,
+# so actual local time shifts by an hour across the Nov/Mar DST changes -
+# that's fine, just expect the posts to land an hour earlier/later then.
+on:
+  schedule:
+    - cron: "0 15 * * 1-5"   # video-am (tries science news first)
+    - cron: "0 16 * * 1-5"   # short-am
+    - cron: "0 21 * * 1-5"   # video-pm
+    - cron: "30 21 * * 1-5"  # short-pm
+  workflow_dispatch:
+    inputs:
+      format:
+        description: "video or short"
+        type: choice
+        options: [video, short]
+        default: video
+      source:
+        description: "auto or news"
+        type: choice
+        options: [auto, news]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gtkwyd-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Cache Piper binary
+        id: cache-piper
+        uses: actions/cache@v4
+        with:
+          path: piper
+          key: piper-linux-x86_64-2023.11.14-2
+
+      - name: Install Piper
+        if: steps.cache-piper.outputs.cache-hit != 'true'
+        run: |
+          curl -sL -o piper.tar.gz https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz
+          tar -xzf piper.tar.gz
+          rm piper.tar.gz
+      - run: chmod +x piper/piper
+
+      - name: Cache Piper voice model
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: piper-voice-amy-medium
+
+      - name: Cache Whisper model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-base-model
+
+      - name: Determine this run's slot
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=manual"                          >> "$GITHUB_OUTPUT"
+            echo "format=${{ inputs.format }}"           >> "$GITHUB_OUTPUT"
+            echo "source=${{ inputs.source }}"           >> "$GITHUB_OUTPUT"
+          else
+            case "${{ github.event.schedule }}" in
+              "0 15 * * 1-5")  echo "name=video-am"; echo "format=video"; echo "source=news" ;;
+              "0 16 * * 1-5")  echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
+              "0 21 * * 1-5")  echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
+              "30 21 * * 1-5") echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+            esac >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Ollama (news / AI slots only, best-effort)
+        if: steps.slot.outputs.source == 'news'
+        continue-on-error: true
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          sleep 6
+          ollama pull llama3.2:3b
+
+      - name: Write config.toml
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+        run: |
+          sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
+              -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
+              -e 's#^visibility = .*#visibility = "unlisted"#' \
+              config.example.toml > config.toml
+
+      - name: Write YouTube credentials
+        env:
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_TOKEN: ${{ secrets.YT_TOKEN }}
+        run: |
+          printf '%s' "$YT_CLIENT_SECRET" > client_secret.json
+          printf '%s' "$YT_TOKEN" > youtube_token.json
+
+      - name: Run
+        run: |
+          python auto.py --slot "${{ steps.slot.outputs.name }}" \
+                         --format "${{ steps.slot.outputs.format }}" \
+                         --source "${{ steps.slot.outputs.source }}"
+
+      - name: Commit updated state
+        if: always()
+        run: |
+          git config user.name "gtkwyd-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add history.jsonl topics_used.txt 2>/dev/null || true
+          git add scripts/published scripts/review scripts/shorts-review \
+                  scripts/_generated scripts/_generated-shorts 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "auto: ${{ steps.slot.outputs.name }} run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
