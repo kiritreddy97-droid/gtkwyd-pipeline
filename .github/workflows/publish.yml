@@ -153,9 +153,9 @@ jobs:
                          --format "${{ steps.slot.outputs.format }}" \
                          --source "${{ steps.slot.outputs.source }}"
 
-      # Temporary: lets us pull the actual rendered file back to check audio/
-      # video quality numerically instead of guessing. Short retention, safe
-      # to remove once we're done tuning.
+      # Keeps the actual rendered file around briefly so quality issues can be
+      # checked directly (ffprobe/loudness) instead of guessed at. Cheap: a
+      # few MB, 3-day retention, well under the free artifact storage limit.
       - name: Upload rendered file for inspection
         if: always()
         uses: actions/upload-artifact@v4
