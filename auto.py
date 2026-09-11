@@ -44,7 +44,9 @@ PUBLISHED = ROOT / "scripts" / "published"
 HISTORY = ROOT / "history.jsonl"
 LOG = ROOT / "auto.log"
 LOCK = ROOT / "auto.lock"
-PY = ROOT / ".venv" / "Scripts" / "python.exe"
+# Re-exec with whatever interpreter is running this file: the local venv on
+# Windows, or plain "python" on the GitHub Actions Linux runner (no venv there).
+PY = Path(sys.executable)
 
 for fmt in DIRS.values():
     for k in ("ready", "bank", "review", "gen"):
