@@ -116,6 +116,17 @@ jobs:
         run: |
           printf '%s' "$YT_CLIENT_SECRET" > client_secret.json
           printf '%s' "$YT_TOKEN" > youtube_token.json
+          # Defensively strip any BOM/whitespace and validate as JSON - a secret
+          # copy-pasted from Windows can carry a leading BOM byte that breaks
+          # Python's plain json.load().
+          python3 -c "
+          import json
+          for f in ('client_secret.json', 'youtube_token.json'):
+              t = open(f, encoding='utf-8-sig').read().strip()
+              json.loads(t)
+              open(f, 'w', encoding='utf-8').write(t)
+          print('YouTube credential files validated OK')
+          "
 
       - name: Run
         run: |
