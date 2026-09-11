@@ -74,6 +74,25 @@ jobs:
           path: ~/.cache/huggingface
           key: whisper-base-model
 
+      - name: Cache music library
+        id: cache-music
+        uses: actions/cache@v4
+        with:
+          path: assets/music
+          key: music-library-v1
+
+      - name: Download music library
+        if: steps.cache-music.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p assets/music
+          gh release download music-v1 --repo "${{ github.repository }}" \
+            --pattern "music-library.zip" --output music-library.zip
+          unzip -q music-library.zip -d assets/music
+          rm music-library.zip
+          echo "music tracks: $(find assets/music -name '*.mp3' | wc -l)"
+
       - name: Determine this run's slot
         id: slot
         run: |
