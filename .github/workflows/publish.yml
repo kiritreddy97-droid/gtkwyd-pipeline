@@ -125,7 +125,7 @@ jobs:
         run: |
           sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
               -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
-              -e 's#^visibility = .*#visibility = "unlisted"#' \
+              -e 's#^visibility = .*#visibility = "public"#' \
               config.example.toml > config.toml
 
       - name: Write YouTube credentials
