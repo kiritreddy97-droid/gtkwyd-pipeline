@@ -6,10 +6,13 @@ name: publish
 # that's fine, just expect the posts to land an hour earlier/later then.
 on:
   schedule:
-    - cron: "0 15 * * 1-5"   # video-am (tries science news first)
-    - cron: "0 16 * * 1-5"   # short-am
-    - cron: "0 21 * * 1-5"   # video-pm
-    - cron: "30 21 * * 1-5"  # short-pm
+    # Off the exact hour/half-hour on purpose: GitHub's own docs warn that
+    # schedules queued right at :00/:30 compete with everyone else's and are
+    # the most likely to be delayed or dropped under load.
+    - cron: "7 15 * * 1-5"    # video-am (tries science news first)
+    - cron: "12 16 * * 1-5"   # short-am
+    - cron: "4 21 * * 1-5"    # video-pm
+    - cron: "37 21 * * 1-5"   # short-pm
   workflow_dispatch:
     inputs:
       format:
