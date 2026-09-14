@@ -142,22 +142,25 @@ def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
         filt.append(f"[0:v]ass={ass_arg}[v]")
         vlabel = "[v]"
 
-    # Audio: even out the narration level, then - if there's music - duck it
-    # with real sidechain compression keyed off the voice, so it swells up
-    # audibly in the gaps and steps aside (not silent) while someone's
-    # talking, instead of sitting at one flat, easy-to-miss volume throughout.
+    # Audio: even out the narration level (gently - a big dynaudnorm gain
+    # factor here was quietly drowning out the music even after ducking), then
+    # - if there's music - duck it lightly with sidechain compression keyed
+    # off the voice. Low ratio + high-ish threshold on purpose: the goal is a
+    # music bed that stays clearly, continuously audible under the narration
+    # and swells further in the gaps, not one that all but disappears
+    # whenever someone talks.
     if music is not None and Path(music).exists():
         cmd += ["-stream_loop", "-1", "-i", str(Path(music).resolve())]
         fade_st = max(0.1, total - 2.5)
-        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8,"
+        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.65:m=6:s=8,"
                     "asplit=2[voc][vsc]")
         filt.append(
             f"[1:a]aresample=48000,highpass=f=80,volume={mv:.3f},"
             f"afade=t=in:st=0:d=1.5,afade=t=out:st={fade_st:.2f}:d=2.0[bed0]")
-        filt.append("[bed0][vsc]sidechaincompress=threshold=0.05:ratio=6:"
-                    "attack=15:release=400:makeup=1[bed]")
-        filt.append("[voc][bed]amix=inputs=2:duration=first:weights=1.0 1.0:"
-                    "dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA=11[a]")
+        filt.append("[bed0][vsc]sidechaincompress=threshold=0.09:ratio=2.5:"
+                    "attack=25:release=500:makeup=1[bed]")
+        filt.append("[voc][bed]amix=inputs=2:duration=first:weights=1.0 1.4:"
+                    "dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA=13[a]")
     else:
         filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8,"
                     "loudnorm=I=-14:TP=-1.5:LRA=11[a]")

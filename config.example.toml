@@ -15,14 +15,24 @@ pixabay_key = ""
 
 [voice]
 # Run  ./run.ps1 --list-voices  to see all options.
-# ljspeech-high = calm, measured audiobook-style narration - the smoothest,
-# most "soothing" free Piper voice. Any "-high" tier voice sounds noticeably
-# less robotic than the same speaker's "-medium"/"-low".
+# true = pick a different smooth "-high" tier voice per video/Short from
+# pipeline.voices.SMOOTH_POOL (mixed gender/accent), plus a small random
+# jitter on pace and prosody each time - so the channel doesn't sound like
+# the same take reused over and over. false = always use `model` below.
+rotate = true
+# Used only when rotate = false, or as the base "model" a script's own
+# `voice:` line overrides. ljspeech-high = calm, measured audiobook-style
+# narration - the smoothest, most "soothing" free Piper voice.
 model = "en_US-ljspeech-high"
 # >1.0 = slower/calmer narration, <1.0 = faster. Slightly slow reads calmer.
+# (±0.04-0.05 random jitter is added per render on top of this.)
 length_scale = 1.12
 # Silence (seconds) inserted after each sentence - more air = calmer pacing.
 sentence_silence = 0.5
+# Piper's own expressiveness controls (defaults: 0.667 / 0.8). Small random
+# jitter is added per render on top of these too.
+noise_scale = 0.667
+noise_w = 0.8
 
 [visuals]
 # "video" prefers stock clips, "image" prefers stills with a Ken Burns pan,
@@ -37,12 +47,12 @@ font = "Anton"
 whisper_model = "base"   # tiny | base | small  (bigger = slower, more accurate)
 
 [music]
-# 0.0 - 1.0. Peak background music level (it auto-ducks under narration and
-# swells back up in the gaps, so this is louder than the level you'll hear
-# while the voice is talking).
-volume = 0.22
-# Slightly louder for Shorts (music carries them more).
-short_volume = 0.28
+# 0.0 - 1.0. Peak background music level. It gently ducks under narration
+# and swells back up in the gaps - this is the swelled-up peak, the level
+# under the voice will be noticeably but not silently lower.
+volume = 0.32
+# Louder still for Shorts (music needs to carry more of a 30-45s Short).
+short_volume = 0.4
 
 [auto]
 # Used only by auto.py (the fully-automated runner). See AUTOMATION.md.

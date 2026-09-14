@@ -20,7 +20,7 @@ from pipeline.script_parser import parse_script
 from pipeline.util import (ASSETS_DIR, BUILD_DIR, PipelineError, check_ffmpeg,
                            dims, load_config, slugify)
 from pipeline.visuals import Asset, VisualFetcher
-from pipeline.voices import DEFAULT_VOICE, ensure_voice, list_voices
+from pipeline.voices import DEFAULT_VOICE, ensure_voice, list_voices, pick_voice
 
 
 def _pick_music(is_short: bool, title: str = "", tags: list[str] | None = None) -> Path | None:
@@ -74,12 +74,17 @@ def main() -> int:
         shutil.rmtree(workdir)
     (workdir / "narration").mkdir(parents=True)
 
-    voice_name = script.voice or cfg.get("voice", {}).get("model", DEFAULT_VOICE)
-    print(f"[voice]  {voice_name}")
-    onnx, _ = ensure_voice(voice_name)
     vcfg = cfg.get("voice", {})
-    length_scale = float(vcfg.get("length_scale", 1.0))
+    voice_name = pick_voice(script.voice, rotate=bool(vcfg.get("rotate", True)),
+                            fallback=vcfg.get("model", DEFAULT_VOICE))
+    onnx, _ = ensure_voice(voice_name)
+    # Small per-render jitter around the configured base values, so two
+    # videos using the same voice still don't come out sounding identical.
+    length_scale = max(0.85, float(vcfg.get("length_scale", 1.0)) + random.uniform(-0.04, 0.05))
     sentence_silence = float(vcfg.get("sentence_silence", 0.35))
+    noise_scale = max(0.3, float(vcfg.get("noise_scale", 0.667)) + random.uniform(-0.06, 0.06))
+    noise_w = max(0.3, float(vcfg.get("noise_w", 0.8)) + random.uniform(-0.08, 0.08))
+    print(f"[voice]  {voice_name}  (length={length_scale:.2f} noise={noise_scale:.2f}/{noise_w:.2f})")
 
     fetcher = None
     if not args.no_stock:
@@ -96,7 +101,8 @@ def main() -> int:
     for i, scene in enumerate(script.scenes):
         print(f"  scene {i + 1}/{len(script.scenes)}: {scene.heading}")
         wav = workdir / "narration" / f"scene_{i:02d}.wav"
-        tts.synthesize(scene.narration, wav, onnx, length_scale, sentence_silence)
+        tts.synthesize(scene.narration, wav, onnx, length_scale, sentence_silence,
+                      noise_scale=noise_scale, noise_w=noise_w)
 
         slide_text = None
         assets: list[Asset] = []

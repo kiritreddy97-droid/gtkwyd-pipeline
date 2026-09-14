@@ -6,6 +6,7 @@ commercial use (see the model card linked from https://rhasspy.github.io/piper-s
 """
 from __future__ import annotations
 
+import random
 import sys
 
 import requests
@@ -34,6 +35,26 @@ VOICES: dict[str, str] = {
 # free option to a "soothing" educational voice. All "-high" voices sound
 # noticeably smoother than "-medium"/"-low" of the same speaker.
 DEFAULT_VOICE = "en_US-ljspeech-high"
+
+# Curated "-high" tier voices only - each is the smoothest tier of its
+# speaker. Mixed gender/accent so back-to-back videos genuinely sound like
+# different narrations, not the same take. Used when [voice] rotate = true.
+SMOOTH_POOL = [
+    "en_US-ljspeech-high",   # calm US female, audiobook cadence
+    "en_US-ryan-high",       # calm US male, deep and even
+    "en_GB-cori-high",       # warm British female
+    "en_US-lessac-high",     # clear, neutral US narrator
+]
+
+
+def pick_voice(explicit: str | None = None, rotate: bool = True,
+               fallback: str = DEFAULT_VOICE) -> str:
+    """Explicit (e.g. a script's own `voice:` line) always wins. Otherwise
+    rotate randomly through SMOOTH_POOL, or return `fallback` if rotation is
+    off."""
+    if explicit:
+        return explicit
+    return random.choice(SMOOTH_POOL) if rotate else fallback
 
 
 def list_voices() -> None:

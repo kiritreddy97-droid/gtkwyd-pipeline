@@ -10,7 +10,8 @@ _ESPEAK_DATA = ROOT / "piper" / "espeak-ng-data"
 
 
 def synthesize(text: str, out_wav: Path, onnx_path: Path,
-               length_scale: float = 1.0, sentence_silence: float = 0.35) -> Path:
+               length_scale: float = 1.0, sentence_silence: float = 0.35,
+               noise_scale: float | None = None, noise_w: float | None = None) -> Path:
     if not PIPER_EXE.exists():
         raise PipelineError(
             f"Piper binary missing at {PIPER_EXE}. Re-run ./setup.ps1"
@@ -24,6 +25,13 @@ def synthesize(text: str, out_wav: Path, onnx_path: Path,
         "--sentence_silence", str(sentence_silence),
         "-q",
     ]
+    # noise_scale/noise_w control the model's own prosody variation (pitch,
+    # rhythm). Small per-video jitter here is what keeps one voice from
+    # sounding like the exact same recording every time.
+    if noise_scale is not None:
+        cmd += ["--noise_scale", str(round(noise_scale, 4))]
+    if noise_w is not None:
+        cmd += ["--noise_w", str(round(noise_w, 4))]
     if _ESPEAK_DATA.exists():
         cmd += ["--espeak_data", str(_ESPEAK_DATA)]
 
