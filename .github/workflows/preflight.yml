@@ -19,6 +19,7 @@ on:
         default: video
 
 permissions:
+  contents: read
   issues: write
 
 jobs:

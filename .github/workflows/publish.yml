@@ -203,6 +203,10 @@ jobs:
             fi
             echo "push rejected, fetching + rebasing (attempt $i) ..."
             git fetch origin main
+            # Our real changes are already in the commit we just made - discard
+            # any stray unstaged noise first so a leftover dirty working tree
+            # can never block the rebase (bit us once already).
+            git checkout -- .
             git rebase origin/main || { git rebase --abort; sleep $((i * 3)); continue; }
             sleep 2
           done
