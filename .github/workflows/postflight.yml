@@ -1,0 +1,85 @@
+name: postflight
+
+# Runs ~10 minutes after each real publish slot and confirms something with a
+# matching, recent, successful entry actually landed in history.jsonl -
+# instead of just assuming the scheduled run worked. If it didn't: retries
+# the publish once automatically (handles a transient blip on its own) and
+# files a GitHub Issue either way so a real failure is visible within
+# minutes, not discovered days later by scrolling the channel.
+on:
+  schedule:
+    - cron: "17 15 * * 1-5"   # 10 min after video-am  (15:07 UTC)
+    - cron: "22 16 * * 1-5"   # 10 min after short-am  (16:12 UTC)
+    - cron: "14 21 * * 1-5"   # 10 min after video-pm  (21:04 UTC)
+    - cron: "47 21 * * 1-5"   # 10 min after short-pm  (21:37 UTC)
+  workflow_dispatch:
+    inputs:
+      format:
+        type: choice
+        options: [video, short]
+        default: video
+
+permissions:
+  issues: write
+  actions: write
+
+jobs:
+  postflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Determine which slot just ran
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=manual"; echo "format=${{ inputs.format }}"; echo "source=auto"
+          else
+            case "${{ github.event.schedule }}" in
+              "17 15 * * 1-5") echo "name=video-am"; echo "format=video"; echo "source=news" ;;
+              "22 16 * * 1-5") echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
+              "14 21 * * 1-5") echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
+              "47 21 * * 1-5") echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+              *)                echo "name=unknown";  echo "format=video"; echo "source=auto" ;;
+            esac
+          fi >> "$GITHUB_OUTPUT"
+
+      - name: Check whether it actually published
+        id: check
+        run: python -m pipeline.healthcheck postflight "${{ steps.slot.outputs.format }}" "${{ steps.slot.outputs.name }}"
+
+      - name: On failure - retry once and file/update an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="🔴 Publish failed: ${{ steps.slot.outputs.name }} ($(date -u +%Y-%m-%d))"
+          EXISTING=$(gh issue list --search "in:title \"Publish failed: ${{ steps.slot.outputs.name }}\" is:open" --json number,body --jq '.[0].number // empty')
+
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" --body "The **${{ steps.slot.outputs.name }}** slot did not produce a successful upload within its expected window.
+
+          Retrying it once automatically now. If you're reading this and it's still open, the retry also failed and this needs a look:
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" --label "pipeline-health"
+
+            echo "First failure for this slot today - triggering one automatic retry."
+            gh workflow run publish -f format="${{ steps.slot.outputs.format }}" -f source="${{ steps.slot.outputs.source }}"
+          else
+            gh issue comment "$EXISTING" --body "Still failing after the automatic retry. This needs a person (or Claude) to look at the actual error - check the Actions log:
+          ${{ github.server_url }}/${{ github.repository }}/actions"
+          fi
+
+      - name: Close any open issue for this slot on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --search "in:title \"${{ steps.slot.outputs.name }}\" is:open" --json number --jq '.[].number' | \
+          while read -r n; do
+            gh issue comment "$n" --body "Resolved - the next run for this slot published successfully."
+            gh issue close "$n"
+          done

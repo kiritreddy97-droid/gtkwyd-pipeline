@@ -1,0 +1,97 @@
+name: preflight
+
+# Runs 5 minutes before each real publish slot in publish.yml and checks the
+# things that actually tend to break silently: an expired YouTube token, a
+# dead stock-footage API key, an empty content bank. This can't rewrite
+# arbitrary code bugs - that needs a human or an LLM session - but it means a
+# broken slot gets flagged within minutes instead of discovered days later.
+on:
+  schedule:
+    - cron: "2 15 * * 1-5"    # 5 min before video-am  (15:07 UTC)
+    - cron: "7 16 * * 1-5"    # 5 min before short-am  (16:12 UTC)
+    - cron: "59 20 * * 1-5"   # 5 min before video-pm  (21:04 UTC)
+    - cron: "32 21 * * 1-5"   # 5 min before short-pm  (21:37 UTC)
+  workflow_dispatch:
+    inputs:
+      format:
+        type: choice
+        options: [video, short]
+        default: video
+
+permissions:
+  issues: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+
+      - name: Determine which slot is next
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=manual"; echo "format=${{ inputs.format }}"
+          else
+            case "${{ github.event.schedule }}" in
+              "2 15 * * 1-5")  echo "name=video-am";  echo "format=video" ;;
+              "7 16 * * 1-5")  echo "name=short-am";  echo "format=short" ;;
+              "59 20 * * 1-5") echo "name=video-pm";  echo "format=video" ;;
+              "32 21 * * 1-5") echo "name=short-pm";  echo "format=short" ;;
+              *)               echo "name=unknown";   echo "format=video" ;;
+            esac
+          fi >> "$GITHUB_OUTPUT"
+
+      - name: Write config + credentials
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_TOKEN: ${{ secrets.YT_TOKEN }}
+        run: |
+          sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
+              -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
+              config.example.toml > config.toml
+          printf '%s' "$YT_CLIENT_SECRET" > client_secret.json
+          printf '%s' "$YT_TOKEN" > youtube_token.json
+          python3 -c "
+          import json
+          for f in ('client_secret.json', 'youtube_token.json'):
+              t = open(f, encoding='utf-8-sig').read().strip()
+              json.loads(t)
+              open(f, 'w', encoding='utf-8').write(t)
+          "
+
+      - name: Run health checks (retries once on transient failure)
+        id: check
+        run: |
+          if python -m pipeline.healthcheck preflight "${{ steps.slot.outputs.format }}" auto; then
+            exit 0
+          fi
+          echo "first attempt failed, retrying once in 30s ..."
+          sleep 30
+          python -m pipeline.healthcheck preflight "${{ steps.slot.outputs.format }}" auto
+
+      - name: File an issue if still broken
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="⚠ Preflight failed: ${{ steps.slot.outputs.name }} ($(date -u +%Y-%m-%d))"
+          EXISTING=$(gh issue list --search "in:title \"Preflight failed: ${{ steps.slot.outputs.name }}\" is:open" --json number --jq '.[0].number // empty')
+          BODY="Preflight check for the **${{ steps.slot.outputs.name }}** slot (format: ${{ steps.slot.outputs.format }}) failed twice in a row, ~5 minutes before it was due to publish.
+
+          This usually means one of: the YouTube refresh token was revoked/expired, a Pexels/Pixabay key stopped working, or the content bank for this format ran out. See the run log for exactly which check failed:
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          This is not something the pipeline can fix on its own - it needs a person (or Claude) to look at it."
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Failed again: $BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label "pipeline-health"
+          fi
