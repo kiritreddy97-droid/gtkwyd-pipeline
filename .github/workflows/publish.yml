@@ -105,10 +105,17 @@ jobs:
             echo "source=${{ inputs.source }}"           >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.schedule }}" in
-              "0 15 * * 1-5")  echo "name=video-am"; echo "format=video"; echo "source=news" ;;
-              "0 16 * * 1-5")  echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
-              "0 21 * * 1-5")  echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
-              "30 21 * * 1-5") echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+              "7 15 * * 1-5")   echo "name=video-am"; echo "format=video"; echo "source=news" ;;
+              "12 16 * * 1-5")  echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
+              "4 21 * * 1-5")   echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
+              "37 21 * * 1-5")  echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+              *)
+                # Safety net: an unrecognised schedule string (e.g. the cron
+                # times above get edited again and this lookup isn't updated
+                # to match) must never crash silently with an empty
+                # --format. Fall back to a safe default instead.
+                echo "::warning::unrecognised schedule '${{ github.event.schedule }}' - falling back to default slot"
+                echo "name=schedule-fallback"; echo "format=video"; echo "source=auto" ;;
             esac >> "$GITHUB_OUTPUT"
           fi
 
