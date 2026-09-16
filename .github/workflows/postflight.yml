@@ -58,6 +58,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # GitHub Actions schedules can run hours late under load. If a publish
+          # run for this slot is still queued/in-progress (i.e. it's late, not
+          # failed), don't pile on a duplicate retry - just note it and exit.
+          INFLIGHT=$(gh run list --workflow=publish --json databaseId,status --jq '[.[] | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting")][0].databaseId // empty')
+          if [ -n "$INFLIGHT" ]; then
+            echo "Publish run $INFLIGHT is still in flight (delayed schedule) - not a real failure, skipping retry."
+            exit 0
+          fi
+
           TITLE="🔴 Publish failed: ${{ steps.slot.outputs.name }} ($(date -u +%Y-%m-%d))"
           EXISTING=$(gh issue list --search "in:title \"Publish failed: ${{ steps.slot.outputs.name }}\" is:open" --json number,body --jq '.[0].number // empty')
 
