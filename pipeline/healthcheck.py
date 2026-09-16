@@ -91,6 +91,31 @@ def check_content_available(fmt: str) -> tuple[bool, str]:
     return True, f"{n} {fmt} script(s) available"
 
 
+def check_daily_cap(cfg: dict) -> tuple[bool, str]:
+    """Catches the exact failure that broke video-pm/short-pm on 2026-09-15:
+    preflight said OK, but the cap was already exhausted so the run silently
+    no-op'd. Mirrors auto.py's own _count_today() logic."""
+    import datetime as dt
+    history = ROOT / "history.jsonl"
+    acfg = cfg.get("auto", {})
+    cap = int(acfg.get("max_per_day", 6))
+    today = dt.date.today().isoformat()
+    count = 0
+    if history.exists():
+        for line in history.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("ts", "").startswith(today) and entry.get("status") == "uploaded":
+                count += 1
+    if count >= cap:
+        return False, f"daily cap already reached ({count}/{cap}) - this slot will silently no-op"
+    return True, f"{count}/{cap} uploads used today"
+
+
 def check_slot_resolves(fmt: str, source: str) -> tuple[bool, str]:
     """Catches the exact class of bug that broke the schedule for days: make
     sure format/source are non-empty and well-formed before a real run
@@ -106,6 +131,7 @@ def run_preflight(fmt: str, source: str) -> int:
     cfg = _load_cfg()
     checks = [
         ("slot", check_slot_resolves(fmt, source)),
+        ("daily_cap", check_daily_cap(cfg)),
         ("youtube_auth", check_youtube_auth()),
         ("stock_apis", check_stock_apis(cfg)),
         ("content", check_content_available(fmt)),
