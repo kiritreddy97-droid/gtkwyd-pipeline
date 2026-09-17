@@ -51,21 +51,29 @@ jobs:
 
       - name: Check whether it actually published
         id: check
+        continue-on-error: true
         run: python -m pipeline.healthcheck postflight "${{ steps.slot.outputs.format }}" "${{ steps.slot.outputs.name }}"
 
       - name: On failure - retry once and file/update an issue
-        if: failure()
+        id: on_failure
+        if: steps.check.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # GitHub Actions schedules can run hours late under load. If a publish
           # run for this slot is still queued/in-progress (i.e. it's late, not
-          # failed), don't pile on a duplicate retry - just note it and exit.
+          # failed), don't pile on a duplicate retry, don't file an issue, and
+          # don't fail this job either (continue-on-error above lets us decide
+          # that explicitly in the next step) - a delayed-but-working run must
+          # never look like a real failure or send a "run failed" email for
+          # nothing.
           INFLIGHT=$(gh run list --workflow=publish --json databaseId,status --jq '[.[] | select(.status=="in_progress" or .status=="queued" or .status=="requested" or .status=="waiting")][0].databaseId // empty')
           if [ -n "$INFLIGHT" ]; then
             echo "Publish run $INFLIGHT is still in flight (delayed schedule) - not a real failure, skipping retry."
+            echo "inflight=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "inflight=false" >> "$GITHUB_OUTPUT"
 
           TITLE="🔴 Publish failed: ${{ steps.slot.outputs.name }} ($(date -u +%Y-%m-%d))"
           EXISTING=$(gh issue list --search "in:title \"Publish failed: ${{ steps.slot.outputs.name }}\" is:open" --json number,body --jq '.[0].number // empty')
@@ -83,8 +91,14 @@ jobs:
           ${{ github.server_url }}/${{ github.repository }}/actions"
           fi
 
+      - name: Fail the job only if this was a genuine failure
+        if: steps.check.outcome == 'failure' && steps.on_failure.outputs.inflight != 'true'
+        run: |
+          echo "::error::postflight genuinely failed for ${{ steps.slot.outputs.name }} - see the 'Check whether it actually published' step above"
+          exit 1
+
       - name: Close any open issue for this slot on success
-        if: success()
+        if: steps.check.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
