@@ -66,26 +66,42 @@ def get_service(interactive: bool = True):
     creds = None
     if TOKEN.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
+
+    changed = False
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        elif interactive:
-            secret = _find_client_secret()
-            if not secret.exists():
+            try:
+                creds.refresh(Request())
+                changed = True
+            except Exception as e:  # noqa: BLE001
+                # A dead/revoked refresh token must not crash here - fall through
+                # to a fresh interactive login instead (or a clear error if this
+                # is a non-interactive/CI call, e.g. a scheduled preflight check).
+                print(f"  refresh failed ({e}), falling back to a fresh login" if interactive
+                     else f"refresh failed: {e}")
+                creds = None
+
+        if not creds or not creds.valid:
+            if interactive:
+                secret = _find_client_secret()
+                if not secret.exists():
+                    raise PipelineError(
+                        "No OAuth client file found in the project folder. Follow "
+                        "YOUTUBE_SETUP.md, then drop the downloaded JSON here. Any of "
+                        "client_secret.json, client_secret.json.json, or the original "
+                        "*.apps.googleusercontent.com.json name will work."
+                    )
+                print(f"  using {secret.name}")
+                flow = InstalledAppFlow.from_client_secrets_file(str(secret), SCOPES)
+                creds = flow.run_local_server(port=0, prompt="consent")
+                changed = True
+            else:
                 raise PipelineError(
-                    "No OAuth client file found in the project folder. Follow "
-                    "YOUTUBE_SETUP.md, then drop the downloaded JSON here. Any of "
-                    "client_secret.json, client_secret.json.json, or the original "
-                    "*.apps.googleusercontent.com.json name will work."
+                    "YouTube token missing/expired and no refresh token. "
+                    "Run  python -m pipeline.youtube --auth  once."
                 )
-            print(f"  using {secret.name}")
-            flow = InstalledAppFlow.from_client_secrets_file(str(secret), SCOPES)
-            creds = flow.run_local_server(port=0, prompt="consent")
-        else:
-            raise PipelineError(
-                "YouTube token missing/expired and no refresh token. "
-                "Run  python -m pipeline.youtube --auth  once."
-            )
+
+    if changed:
         TOKEN.write_text(creds.to_json(), encoding="utf-8")
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
