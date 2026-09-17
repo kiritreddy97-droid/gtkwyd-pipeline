@@ -1,0 +1,79 @@
+name: instagram
+
+# Posts staged Instagram glimpse clips ~1h after the matching YouTube video
+# went up. Staging (building the clip + hosting it on a GitHub Release)
+# happens inside auto.py at publish time; this workflow only does the
+# scheduled part - scan history.jsonl for anything whose post-after time has
+# passed and hasn't been posted yet, and publish it via the Instagram Graph
+# API. Idempotent: safe to run as often as you like, it just finds nothing
+# due and exits quietly.
+#
+# Only video-am (~15:07 UTC) and video-pm (~21:04 UTC) produce a glimpse
+# (Shorts are skipped), so the windows below cluster ~1h after each. Multiple
+# staggered checks per window because GitHub Actions schedules can run late
+# under load (see postflight.yml) - a repeat check within the window is a
+# harmless no-op once the first one succeeds.
+on:
+  schedule:
+    - cron: "9 16 * * 1-5"
+    - cron: "39 16 * * 1-5"
+    - cron: "9 17 * * 1-5"
+    - cron: "6 22 * * 1-5"
+    - cron: "36 22 * * 1-5"
+    - cron: "6 23 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gtkwyd-instagram
+  cancel-in-progress: false
+
+jobs:
+  post-due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Write config.toml
+        run: cp config.example.toml config.toml
+
+      - name: Post anything due
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python -m pipeline.instagram post-due
+
+      - name: Commit updated state
+        if: always()
+        run: |
+          git config user.name "gtkwyd-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add history.jsonl 2>/dev/null || true
+          git status --short
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "instagram: post-due run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "push rejected, fetching + rebasing (attempt $i) ..."
+            git fetch origin main
+            git checkout -- .
+            git rebase origin/main || { git rebase --abort; sleep $((i * 3)); continue; }
+            sleep 2
+          done
+          echo "::error::could not push updated state after retries"
+          exit 1

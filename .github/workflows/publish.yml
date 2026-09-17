@@ -158,6 +158,12 @@ jobs:
           "
 
       - name: Run
+        env:
+          # Only needed for the Instagram glimpse-clip step (auto.py ->
+          # pipeline/instagram.py), which shells out to `gh release create`
+          # to host the clip at a public URL. Posting itself happens later,
+          # in instagram.yml, and doesn't need this.
+          GH_TOKEN: ${{ github.token }}
         run: |
           python auto.py --slot "${{ steps.slot.outputs.name }}" \
                          --format "${{ steps.slot.outputs.format }}" \

@@ -77,6 +77,15 @@ Set it to `false` only once you have watched enough AI drafts to trust them.
 Every render adds a quiet random track from `assets/music/`. See
 **MUSIC_SETUP.md** - use the YouTube Audio Library only.
 
+## Instagram cross-posting
+
+Every full video (not Shorts) gets a ~20s glimpse clip auto-posted to
+Instagram Reels ~1h after it goes live on YouTube. See **INSTAGRAM_SETUP.md**
+for the one-time setup - until it's done, glimpses stage silently but nothing
+posts. Runs across two files: `auto.py` stages the clip right after upload
+(`pipeline/instagram.py`), and `.github/workflows/instagram.yml` posts
+whatever's due on a schedule.
+
 ## Monitoring
 
 ```powershell

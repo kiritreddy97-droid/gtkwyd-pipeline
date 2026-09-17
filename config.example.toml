@@ -76,3 +76,13 @@ ollama_model = "llama3.2:3b"
 self_review = true
 # Optional: add every upload to this playlist.
 playlist_id = ""
+# Cross-post a ~20s glimpse (hook + highlight clip + "watch on YouTube" outro)
+# to Instagram Reels ~1h after each full video publishes. Shorts are skipped -
+# they're already short-form. See INSTAGRAM_SETUP.md for the one-time setup;
+# until IG_USER_ID/IG_ACCESS_TOKEN secrets are set, this stages the clip but
+# nothing actually posts.
+instagram_glimpse = true
+
+[social]
+# Shown on the Instagram CTA outro card and in the post caption.
+youtube_handle = ""
