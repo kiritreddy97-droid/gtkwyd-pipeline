@@ -119,8 +119,14 @@ jobs:
             esac >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install Ollama (news / AI slots only, best-effort)
-        if: steps.slot.outputs.source == 'news'
+      # Always installed, not just for source=news: whenever the hand-written
+      # bank runs dry for a format, auto.py silently falls back to this AI
+      # writer regardless of the requested source. Skipping this install for
+      # "auto" slots meant that fallback failed with "Ollama is not running"
+      # and auto.py treated the resulting None pick as "nothing to do" -
+      # reporting success while silently publishing nothing. That's exactly
+      # what happened to shorts once the shorts-bank ran out (2026-09-23).
+      - name: Install Ollama (AI-writer fallback, best-effort)
         continue-on-error: true
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
@@ -189,9 +195,19 @@ jobs:
           # one path per "git add" - if any single path doesn't exist yet, git
           # aborts the WHOLE add for a multi-path invocation, silently dropping
           # paths that do exist and need staging (bit us once already).
+          #
+          # scripts/bank and scripts/shorts-bank must be included here: when
+          # auto.py publishes a bank script it moves the file out of these
+          # folders into scripts/published, but without staging the bank
+          # folders themselves that deletion was never committed - the file
+          # just reappeared on every fresh checkout. Bank scripts piled up as
+          # unremovable "ghost" duplicates of already-published content until
+          # every remaining file in shorts-bank was a ghost and picks()
+          # silently found nothing (2026-09-23).
           for p in history.jsonl topics_used.txt scripts/published \
                    scripts/review scripts/shorts-review \
-                   scripts/_generated scripts/_generated-shorts; do
+                   scripts/_generated scripts/_generated-shorts \
+                   scripts/bank scripts/shorts-bank; do
             git add "$p" 2>/dev/null || true
           done
           git status --short

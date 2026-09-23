@@ -24,20 +24,100 @@ DEFAULT_MODEL = "llama3.2:3b"
 
 _EXAMPLE = textwrap.dedent("""\
     ---
-    title: 6 Facts About Honeybees That Sound Made Up
+    title: 8 Facts About Honeybees That Sound Made Up
     description_hook: A honeybee colony makes decisions with nobody in charge.
     tags: honeybees, bees, insects, nature, animal facts, biology
     ---
 
     ## No one is in charge
-    The queen does not give orders. Thousands of workers react to each other,
-    and the colony's behaviour emerges from those small interactions.
+    The queen does not give orders, and no single bee has a plan for the
+    colony. Thousands of workers react only to their immediate neighbours,
+    through touch, scent, and movement, and the colony's larger behaviour
+    emerges from millions of these small, local interactions. A hive can
+    react to a threat, a new food source, or a change in outside temperature
+    within minutes, all without a single bee understanding the whole picture.
+    Biologists call this kind of group intelligence "swarm behaviour," and
+    the same basic pattern shows up in ant colonies, termite mounds, and even
+    flocks of starlings moving together in the sky.
     [[honeybees on honeycomb]] [[beehive close up]]
 
     ## They vote by dancing
-    Scout bees advertise new nest sites with a waggle dance. The better the
-    site, the longer the dance, and the swarm leaves once enough scouts agree.
+    Scout bees advertise new nest sites with a waggle dance, a figure-eight
+    movement whose angle from vertical points toward the site's direction and
+    whose length and vigour signal how far away and how good it is. The
+    better the site, the longer and more energetic the dance, and other
+    scouts fly out to check it for themselves before returning to dance in
+    support if they agree. The swarm only leaves once enough scouts have
+    converged on the same site, sometimes after days of this slow, silent,
+    decentralised vote. Researchers who have tracked thousands of real swarms
+    find the same reliable decision-making process every time, almost like a
+    parliament with no chairperson.
     [[bee waggle dance]] [[swarm of bees on branch]]
+
+    ## A single stomach for thousands
+    Worker bees constantly share food mouth to mouth in a process called
+    trophallaxis, passing nectar, water, and chemical signals from bee to bee
+    across the entire colony within a matter of hours. This shared "social
+    stomach" is also how a hive collectively senses whether it has stored
+    enough food to survive the coming winter, since the flow of food slows
+    and speeds up depending on what is available. A single colony can hold
+    over 50,000 bees at its summer peak, and this constant exchange is what
+    keeps all of them informed and coordinated.
+    [[bees feeding each other]] [[honeycomb close up]]
+
+    ## The hive keeps its own climate
+    Bees actively heat and cool their hive to keep the brood nest within a
+    narrow band around 35 degrees Celsius, all year round, regardless of the
+    weather outside. In summer, workers line up at the entrance and fan their
+    wings to pull cooler air through the hive like a living air conditioner.
+    In winter, thousands of bees cluster tightly together around the queen
+    and vibrate their flight muscles without moving their wings, generating
+    heat through muscle activity alone. Beekeepers who have measured hive
+    interiors find the temperature rarely drifts more than a degree or two
+    either way, even during a hard freeze.
+    [[bees fanning wings]] [[winter beehive snow]]
+
+    ## Drones exist for one purpose
+    Male bees, called drones, do not forage for food, defend the hive, or
+    help build the comb the way female worker bees do. Their only biological
+    role is to mate with a new queen from a different colony during a brief
+    flight, and the vast majority never get the chance to succeed at all. In
+    autumn, once the mating season ends and food becomes scarce, worker bees
+    often physically push the remaining drones out of the hive, since feeding
+    them through winter would offer the colony nothing in return.
+    [[drone bee]] [[bees at hive entrance]]
+
+    ## Honey never spoils
+    Properly sealed honey has such low moisture content and high acidity that
+    bacteria and most microorganisms simply cannot grow in it, which is why
+    archaeologists have found sealed pots of honey in Egyptian tombs that were
+    thousands of years old and still perfectly edible. Bees achieve this by
+    repeatedly passing nectar between bees and fanning it with their wings to
+    evaporate its water content down to around 17 percent, before finally
+    capping each cell with a thin layer of wax. Modern honey, stored the same
+    simple way, can outlast almost any other food humans commonly keep.
+    [[honey jar close up]] [[ancient pottery]]
+
+    ## They remember and they learn
+    Honeybees can learn to associate particular colours and scents with a
+    food reward after only a handful of trials, a type of fast learning
+    scientists once assumed required a much larger brain. Some experiments
+    even suggest bees can distinguish between individual human faces shown in
+    photographs, using the same strategy they use to recognise flower
+    patterns. Their brains are smaller than a grain of rice, yet they
+    reliably solve navigation, memory, and pattern-recognition tasks that
+    challenge animals many times their size.
+    [[bee on flower]] [[bee close up eyes]]
+
+    ## A colony can outlive its queen many times over
+    Individual worker bees typically live only a few weeks during the busy
+    summer months, worked to exhaustion foraging and building. Yet a healthy
+    colony as a whole can persist for many years or even decades, continuously
+    replacing its queen, its workers, and every structure inside the hive.
+    What looks from the outside like one single, long-lived creature is
+    really a constantly renewing population, each generation carrying out the
+    same instructions the last one followed.
+    [[old beehive]] [[bees swarming]]
     """)
 
 _SYSTEM = textwrap.dedent(f"""\
@@ -52,10 +132,13 @@ _SYSTEM = textwrap.dedent(f"""\
     - No clickbait or exaggeration.
     - Calm, clear, curious tone. Plain words. Short sentences.
 
-    FORMAT - copy this structure EXACTLY. 5 or 6 scenes. Each scene: a "## "
-    heading, then 2-3 sentences of narration, then one line with two
-    [[double-bracket]] image search phrases. No other text, no "Narrator:",
-    no "[Scene: ...]".
+    FORMAT - copy this structure EXACTLY. 8 to 10 scenes (this is a 4-6 minute
+    video, not a Short - go deep on each fact instead of listing many shallow
+    ones). Each scene: a "## " heading, then 4-6 sentences of narration that
+    explain the fact with real context, numbers, or comparisons (not just
+    restate it), then one line with two [[double-bracket]] image search
+    phrases. Aim for roughly 650-800 words of narration in total. No other
+    text, no "Narrator:", no "[Scene: ...]".
 
     EXAMPLE:
 {textwrap.indent(_EXAMPLE, "    ")}
@@ -117,7 +200,7 @@ def _generate_once(topic: str, model: str, kind: str = "video") -> str:
                       f"format from the example. Reply with only the markdown.",
             "stream": False,
             "options": {"temperature": 0.3,
-                        "num_predict": 450 if kind == "short" else 900,
+                        "num_predict": 450 if kind == "short" else 1700,
                         "top_p": 0.9},
         },
         timeout=600,
@@ -239,7 +322,7 @@ def _queries_from(raw_text: str, heading: str, topic: str) -> list[str]:
     return out[:2]
 
 
-def _normalize(raw: str, topic: str) -> str:
+def _normalize(raw: str, topic: str, kind: str = "video") -> str:
     raw = _FENCE.sub("", raw).strip()
     idx = raw.find("---")
     if 0 < idx < 40:
@@ -255,8 +338,14 @@ def _normalize(raw: str, topic: str) -> str:
         head = heading.strip() or _kw(narr).title()
         scenes.append((head[:60], narr, qs))
 
-    if len(scenes) > 7:
-        scenes = scenes[:6]
+    # generous grace margin above each kind's target scene count (see
+    # scene_lo/scene_hi in generate_script / the 5-8 check in
+    # generate_news_script) - this used to hard-cap at 6 regardless of kind,
+    # which silently truncated every longer video script back down to ~1
+    # minute's worth of scenes before the length check ever saw it.
+    cap = {"short": 4, "news": 8}.get(kind, 12)
+    if len(scenes) > cap:
+        scenes = scenes[:cap]
 
     title = re.sub(r'^["\']|["\']$', "", meta["title"]).strip()
     tags = meta.get("tags", "")
@@ -324,9 +413,11 @@ _NEWS_SYSTEM = textwrap.dedent(f"""\
       no speculation about the future beyond what the source says.
     - Third person, declarative. Calm and curious.
 
-    FORMAT - copy this structure EXACTLY. 4 or 5 scenes. Each scene: a "## "
-    heading, then 2-3 sentences, then one line with two [[double-bracket]] image
-    search phrases (use concrete visual nouns, not the headline).
+    FORMAT - copy this structure EXACTLY. 5 to 7 scenes. Each scene: a "## "
+    heading, then 3-4 sentences, then one line with two [[double-bracket]] image
+    search phrases (use concrete visual nouns, not the headline). Use as much
+    genuine detail as the summary actually supports - typically 300-450 words
+    total. Never pad with restatement or speculation just to add length.
 
     EXAMPLE:
 {textwrap.indent(_EXAMPLE, "    ")}
@@ -349,19 +440,19 @@ def generate_news_script(headline: str, summary: str, source: str,
                 f"{OLLAMA_URL}/api/generate",
                 json={"model": model, "system": _NEWS_SYSTEM, "prompt": prompt,
                       "stream": False,
-                      "options": {"temperature": 0.25, "num_predict": 800}},
+                      "options": {"temperature": 0.25, "num_predict": 1000}},
                 timeout=600,
             )
             resp.raise_for_status()
-            md = _normalize(resp.json().get("response", ""), headline)
+            md = _normalize(resp.json().get("response", ""), headline, kind="news")
             script = parse_script_text(md, fallback_title=headline)
         except Exception as e:  # noqa: BLE001
             last = [str(e)]
             continue
         t_ok, t_why = guardrails.check_title(script.title)
         s_ok, s_issues = guardrails.check_script(
-            " ".join(sc.narration for sc in script.scenes))
-        if t_ok and s_ok and 3 <= len(script.scenes) <= 6:
+            " ".join(sc.narration for sc in script.scenes), kind="news")
+        if t_ok and s_ok and 5 <= len(script.scenes) <= 8:
             return md
         last = ([] if t_ok else [f"title: {t_why}"]) + s_issues
     raise PipelineError(f"news script failed for {headline!r}: {' | '.join(last)}")
@@ -382,11 +473,14 @@ def generate_script(topic: str, model: str = DEFAULT_MODEL, attempts: int = 3,
 
     from .script_parser import parse_script_text
 
-    scene_lo, scene_hi = (3, 4) if kind == "short" else (4, 7)
+    # Word count (via check_script) is the real length gate; scene count is
+    # just a sanity check. A 3B local model doesn't reliably hit an exact
+    # scene target even when it nails the word count, so keep this loose.
+    scene_lo, scene_hi = (3, 4) if kind == "short" else (6, 12)
     last: list[str] = []
     for _ in range(attempts):
         try:
-            md = _normalize(_generate_once(topic, model, kind), topic)
+            md = _normalize(_generate_once(topic, model, kind), topic, kind)
             script = parse_script_text(md, fallback_title=topic)
         except (PipelineError, Exception) as e:  # noqa: BLE001 - any failure -> retry
             last = [f"normalise/parse: {e}"]

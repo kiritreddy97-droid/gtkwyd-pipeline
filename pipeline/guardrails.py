@@ -100,7 +100,20 @@ def check_script(text: str, kind: str = "video") -> tuple[bool, list[str]]:
     issues: list[str] = []
     low = text.lower()
     words = re.findall(r"\w+", text)
-    lo, hi = (45, 150) if kind == "short" else (90, 320)
+    # video: ~550-900 words targets ~4-6 min of narration at the pipeline's
+    # TTS pace (length_scale=1.12, ~134 wpm effective) - was capped at 320
+    # words (~1 min), which is why full videos were landing around 1 minute
+    # regardless of how the prompt was worded.
+    # news is its own, shorter bound: it must stick to what the source
+    # summary actually says, so it can't be forced to the same word count
+    # without risking padding/speculation - better to let it fall back to
+    # the bank/AI path than stretch a thin news item artificially.
+    if kind == "short":
+        lo, hi = 45, 150
+    elif kind == "news":
+        lo, hi = 150, 500
+    else:
+        lo, hi = 550, 900
 
     if len(words) < lo:
         issues.append(f"too short ({len(words)} words; need >={lo})")
