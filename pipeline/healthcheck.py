@@ -82,13 +82,27 @@ def check_stock_apis(cfg: dict) -> tuple[bool, str]:
 
 
 def check_content_available(fmt: str) -> tuple[bool, str]:
+    """An empty bank is only a real problem if the AI-writer fallback also
+    has nothing left to work with (its topic queue exhausted too) - with
+    require_review_for_ai off, the AI writer is a fully autonomous source on
+    its own, not a "needs a human" stopgap. Flagging every bank-empty format
+    as a failure here was itself the false alarm that broke short-pm's
+    preflight on 2026-09-23 right after the bank was (correctly) emptied of
+    ghost duplicates."""
+    from . import ideas
+
     bank = ROOT / "scripts" / ("shorts-bank" if fmt == "short" else "bank")
     ready = ROOT / "scripts" / ("shorts-ready" if fmt == "short" else "ready")
     n = len(list(bank.glob("*.md"))) + len(list(ready.glob("*.md")))
-    if n == 0:
-        return False, (f"no {fmt} scripts left in bank/ready - the AI writer "
-                       f"would have to carry this slot, check topics{'​-shorts' if fmt=='short' else ''}.txt")
-    return True, f"{n} {fmt} script(s) available"
+    if n > 0:
+        return True, f"{n} {fmt} script(s) available"
+
+    topics_file = ROOT / ("topics-shorts.txt" if fmt == "short" else "topics.txt")
+    left = ideas.remaining(topics_file) if topics_file.exists() else 0
+    if left > 0:
+        return True, f"bank empty, but {left} topic(s) left for the AI writer"
+    return False, (f"no {fmt} scripts left in bank/ready AND "
+                   f"{topics_file.name} is also exhausted - nothing left to publish")
 
 
 def check_daily_cap(cfg: dict) -> tuple[bool, str]:
