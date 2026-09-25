@@ -23,6 +23,11 @@ from pipeline.visuals import Asset, VisualFetcher
 from pipeline.voices import DEFAULT_VOICE, ensure_voice, list_voices, pick_voice
 
 
+OUTRO_SPOKEN = ("For more information and to stay updated, please like, "
+               "share, and subscribe.")
+OUTRO_DISPLAY = "LIKE, SHARE & SUBSCRIBE for more like this"
+
+
 def _pick_music(is_short: bool, title: str = "", tags: list[str] | None = None) -> Path | None:
     """Mood-matched track from your library (assets/music/) or, if that's
     empty (e.g. a fresh clone / cloud run), the small always-committed
@@ -123,6 +128,21 @@ def main() -> int:
         scene_durations.append(dur)
         scene_wavs.append((wav, running))
         running += dur
+
+    # Every video and Short ends on the same like/share/subscribe card -
+    # built the same way as --no-stock's plain slides, so it gets a real
+    # narrated scene (captioned like the rest) rather than a bolted-on clip.
+    cta_idx = len(script.scenes)
+    print(f"  scene {cta_idx + 1}/{len(script.scenes) + 1}: outro (like/share/subscribe)")
+    cta_wav = workdir / "narration" / f"scene_{cta_idx:02d}.wav"
+    tts.synthesize(OUTRO_SPOKEN, cta_wav, onnx, length_scale, sentence_silence,
+                  noise_scale=noise_scale, noise_w=noise_w)
+    cta_mp4, cta_dur = assemble.build_scene(
+        cta_idx, cta_wav, [], cfg, workdir, slide_text=OUTRO_DISPLAY)
+    scene_finals.append(cta_mp4)
+    scene_durations.append(cta_dur)
+    scene_wavs.append((cta_wav, running))
+    running += cta_dur
 
     ass_path = None
     srt_out = None
