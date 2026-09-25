@@ -69,8 +69,8 @@ visibility = "public"
 # carry the trust burden instead.
 require_review_for_ai = false
 # Hard ceiling on uploads per calendar day (protects against runaway loops).
-# The schedule itself only fires 4 times/day; this just leaves headroom for a
-# manual catch-up run without silently refusing.
+# The schedule itself only fires 6 times/day (2 videos + 4 shorts); this
+# just leaves headroom for a manual catch-up run without silently refusing.
 max_per_day = 12
 # Local model for the AI writer (must be pulled in Ollama first).
 # llama3.2:3b  - fast (~1-2 min/script), okay accuracy

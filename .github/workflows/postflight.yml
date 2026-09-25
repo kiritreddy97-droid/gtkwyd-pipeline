@@ -8,10 +8,12 @@ name: postflight
 # minutes, not discovered days later by scrolling the channel.
 on:
   schedule:
-    - cron: "17 15 * * 1-5"   # 10 min after video-am  (15:07 UTC)
-    - cron: "22 16 * * 1-5"   # 10 min after short-am  (16:12 UTC)
-    - cron: "14 21 * * 1-5"   # 10 min after video-pm  (21:04 UTC)
-    - cron: "47 21 * * 1-5"   # 10 min after short-pm  (21:37 UTC)
+    - cron: "17 15 * * 1-5"   # 10 min after video-am    (15:07 UTC)
+    - cron: "14 21 * * 1-5"   # 10 min after video-pm    (21:04 UTC)
+    - cron: "19 14 * * 1-5"   # 10 min after short-8am   (14:09 UTC)
+    - cron: "22 20 * * 1-5"   # 10 min after short-2pm   (20:12 UTC)
+    - cron: "17 2 * * 2-6"    # 10 min after short-8pm   (02:07 UTC, see publish.yml's day-shift note)
+    - cron: "44 8 * * 1-5"    # 10 min after short-2am   (08:34 UTC)
   workflow_dispatch:
     inputs:
       format:
@@ -41,10 +43,12 @@ jobs:
             echo "name=manual"; echo "format=${{ inputs.format }}"; echo "source=auto"
           else
             case "${{ github.event.schedule }}" in
-              "17 15 * * 1-5") echo "name=video-am"; echo "format=video"; echo "source=news" ;;
-              "22 16 * * 1-5") echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
-              "14 21 * * 1-5") echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
-              "47 21 * * 1-5") echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+              "17 15 * * 1-5") echo "name=video-am";  echo "format=video"; echo "source=news" ;;
+              "14 21 * * 1-5") echo "name=video-pm";  echo "format=video"; echo "source=auto" ;;
+              "19 14 * * 1-5") echo "name=short-8am"; echo "format=short"; echo "source=auto" ;;
+              "22 20 * * 1-5") echo "name=short-2pm"; echo "format=short"; echo "source=auto" ;;
+              "17 2 * * 2-6")  echo "name=short-8pm"; echo "format=short"; echo "source=auto" ;;
+              "44 8 * * 1-5")  echo "name=short-2am"; echo "format=short"; echo "source=auto" ;;
               *)                echo "name=unknown";  echo "format=video"; echo "source=auto" ;;
             esac
           fi >> "$GITHUB_OUTPUT"

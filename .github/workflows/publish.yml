@@ -1,18 +1,25 @@
 name: publish
 
-# Times below are UTC. The repo was set up for Mountain Time (UTC-6 MDT /
-# UTC-7 MST) targeting 09:00 / 10:00 / 15:00 / 15:30 local. Cron is fixed UTC,
-# so actual local time shifts by an hour across the Nov/Mar DST changes -
-# that's fine, just expect the posts to land an hour earlier/later then.
+# Times below are UTC, converted from Mountain Time (currently MDT, UTC-6).
+# 2 videos/day (~9:00am / ~3:00pm local) + 4 shorts/day (~8am / ~2pm / ~8pm /
+# ~2am local), per the channel owner's cadence request. Cron is fixed UTC, so
+# actual local time shifts by an hour across the Nov/Mar DST changes - that's
+# fine, just expect the posts to land an hour earlier/later then. The 8pm
+# slot crosses midnight UTC (8pm Mountain = 2am UTC the next day), so its
+# weekday range is shifted by one day (2-6 = Tue-Sat UTC) to still land on
+# Mon-Fri evenings locally - the other three slots don't cross midnight and
+# use the normal 1-5 (Mon-Fri UTC).
 on:
   schedule:
     # Off the exact hour/half-hour on purpose: GitHub's own docs warn that
     # schedules queued right at :00/:30 compete with everyone else's and are
     # the most likely to be delayed or dropped under load.
-    - cron: "7 15 * * 1-5"    # video-am (tries science news first)
-    - cron: "12 16 * * 1-5"   # short-am
-    - cron: "4 21 * * 1-5"    # video-pm
-    - cron: "37 21 * * 1-5"   # short-pm
+    - cron: "7 15 * * 1-5"    # video-am   (~9:07am Mountain, tries science news first)
+    - cron: "4 21 * * 1-5"    # video-pm   (~3:04pm Mountain)
+    - cron: "9 14 * * 1-5"    # short-8am  (~8:09am Mountain)
+    - cron: "12 20 * * 1-5"   # short-2pm  (~2:12pm Mountain)
+    - cron: "7 2 * * 2-6"     # short-8pm  (~8:07pm Mountain - see UTC day-shift note above)
+    - cron: "34 8 * * 1-5"    # short-2am  (~2:34am Mountain)
   workflow_dispatch:
     inputs:
       format:
@@ -105,10 +112,12 @@ jobs:
             echo "source=${{ inputs.source }}"           >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.schedule }}" in
-              "7 15 * * 1-5")   echo "name=video-am"; echo "format=video"; echo "source=news" ;;
-              "12 16 * * 1-5")  echo "name=short-am"; echo "format=short"; echo "source=auto" ;;
-              "4 21 * * 1-5")   echo "name=video-pm"; echo "format=video"; echo "source=auto" ;;
-              "37 21 * * 1-5")  echo "name=short-pm"; echo "format=short"; echo "source=auto" ;;
+              "7 15 * * 1-5")   echo "name=video-am";  echo "format=video"; echo "source=news" ;;
+              "4 21 * * 1-5")   echo "name=video-pm";  echo "format=video"; echo "source=auto" ;;
+              "9 14 * * 1-5")   echo "name=short-8am"; echo "format=short"; echo "source=auto" ;;
+              "12 20 * * 1-5")  echo "name=short-2pm"; echo "format=short"; echo "source=auto" ;;
+              "7 2 * * 2-6")    echo "name=short-8pm"; echo "format=short"; echo "source=auto" ;;
+              "34 8 * * 1-5")   echo "name=short-2am"; echo "format=short"; echo "source=auto" ;;
               *)
                 # Safety net: an unrecognised schedule string (e.g. the cron
                 # times above get edited again and this lookup isn't updated
