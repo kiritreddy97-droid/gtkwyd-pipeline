@@ -117,12 +117,21 @@ def _pixabay_photo(query: str, key: str) -> Asset | None:
     return None
 
 
+_ANIMATION_TERMS = ("animation", "3d animation", "motion graphics")
+
+
 class VisualFetcher:
     def __init__(self, cfg: dict):
         apis = cfg.get("apis", {})
         self.pexels = apis.get("pexels_key", "").strip()
         self.pixabay = apis.get("pixabay_key", "").strip()
-        self.prefer = cfg.get("visuals", {}).get("prefer", "video").lower()
+        vcfg = cfg.get("visuals", {})
+        self.prefer = vcfg.get("prefer", "video").lower()
+        # Prefer real animated/CGI/motion-graphics stock footage over live-action
+        # photography or filmed video, when the library actually has it for a
+        # given topic - falls back to the plain query (video, then photo) when
+        # it doesn't, so this can never turn into "no results" for a niche topic.
+        self.prefer_animation = bool(vcfg.get("prefer_animation", True))
         orient = cfg.get("project", {}).get("orientation", "landscape").lower()
         self.orientation = "portrait" if orient.startswith("port") else "landscape"
         if not self.pexels and not self.pixabay:
@@ -138,6 +147,16 @@ class VisualFetcher:
             self.prefer == "mix" and self._counter % 2 == 1
         )
         chain = []
+        if want_video and self.prefer_animation:
+            # Try one animation-biased phrasing before anything else. Only one
+            # term, not all three - a scene-by-scene budget, not a full sweep,
+            # to keep API call counts sane across a 6-11 scene render.
+            term = _ANIMATION_TERMS[self._counter % len(_ANIMATION_TERMS)]
+            anim_query = f"{query} {term}"
+            if self.pexels:
+                chain.append(lambda: _pexels_video(anim_query, self.pexels, self.orientation))
+            if self.pixabay:
+                chain.append(lambda: _pixabay_video(anim_query, self.pixabay))
         if want_video:
             if self.pexels:
                 chain.append(lambda: _pexels_video(query, self.pexels, self.orientation))

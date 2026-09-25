@@ -38,6 +38,10 @@ noise_w = 0.8
 # "video" prefers stock clips, "image" prefers stills with a Ken Burns pan,
 # "mix" alternates.
 prefer = "video"
+# Try a real animated/CGI/motion-graphics stock clip before live-action
+# footage or photos, when the library has one for the topic (falls back to
+# the plain query when it doesn't - never turns into "no results").
+prefer_animation = true
 
 [captions]
 enabled = true
