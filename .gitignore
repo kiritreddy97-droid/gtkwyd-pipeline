@@ -24,6 +24,11 @@ assets/music/*
 # workflow commits updates to them so the next run knows what's been used.
 auto.log
 auto.lock
+story.log
+story.lock
+reels.log
+reels.lock
+fact_post.log
 
 # scratch files
 scratch_*.py

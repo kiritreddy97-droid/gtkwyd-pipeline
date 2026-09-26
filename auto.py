@@ -205,6 +205,8 @@ def run(slot: str, fmt: str, source: str, dry_run: bool) -> int:
     thumb = outdir / f"{slug}_thumbnail.png"
     entry["title"] = meta["title"]
     entry["is_short"] = meta.get("is_short", fmt == "short")
+    if script.description_hook.strip():
+        entry["hook"] = script.description_hook.strip()
 
     if dry_run or not acfg.get("upload", True):
         entry["status"] = "rendered"

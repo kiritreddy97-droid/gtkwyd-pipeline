@@ -1,0 +1,78 @@
+name: fact-image
+
+# One "mind-blowing fact" static image post per day to the Instagram feed
+# (not a Reel/video) - built from the most recently uploaded YouTube
+# video/Short's hook line, meant to drive shares/engagement back to the full
+# video. Lightweight compared to the other workflows: no ffmpeg/Piper/
+# Whisper/Ollama, this only builds a PIL image. Time below is UTC, converted
+# from Mountain Time (currently MDT, UTC-6): 16:52 UTC = ~10:52am Mountain.
+on:
+  schedule:
+    - cron: "52 16 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "build only, do not post"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gtkwyd-fact-image
+  cancel-in-progress: false
+
+jobs:
+  fact-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Write config.toml
+        run: cp config.example.toml config.toml
+
+      - name: Run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python fact_post.py --dry-run
+          else
+            python fact_post.py
+          fi
+
+      - name: Commit updated state
+        if: always()
+        run: |
+          git config user.name "gtkwyd-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add history.jsonl 2>/dev/null || true
+          git status --short
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "fact-image: run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "push rejected, fetching + rebasing (attempt $i) ..."
+            git fetch origin main
+            git checkout -- .
+            git rebase origin/main || { git rebase --abort; sleep $((i * 3)); continue; }
+            sleep 2
+          done
+          echo "::error::could not push updated state after retries"
+          exit 1

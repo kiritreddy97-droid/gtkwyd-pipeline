@@ -653,10 +653,14 @@ _REEL_GUIDANCE = {
         "seconds, not to teach a lot of facts."
     ),
     "fitness": (
-        "one single, correct, well-known movement or exercise-form tip - a "
-        "stretch, a posture cue, a warm-up habit, or a simple body-mechanics "
-        "fact. Never diet, weight-loss, supplements, or medical advice - only "
-        "movement, form, and technique."
+        "one single, correct, well-known fitness, wellness, or nutrition "
+        "fact - a stretch, a posture cue, a warm-up habit, a body-mechanics "
+        "fact, or a simple, widely-established fact about hydration, sleep, "
+        "energy, or how food affects performance. State it as a fact "
+        "('protein supports muscle repair'), never as a command or a diet "
+        "plan ('you should eat more protein'). Never weight-loss claims, "
+        "named supplements/products, calorie counting, or medical advice - "
+        "only well-established movement, recovery, and nutrition facts."
     ),
 }
 

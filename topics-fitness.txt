@@ -1,7 +1,8 @@
-# Theme queue for fitness-tip Reels (reels.py). One theme per line, under
-# 120 characters. Lines starting with # and blank lines are ignored.
-# Movement/form/technique tips ONLY - never diet, weight-loss, or supplements
-# (guardrails.py blocks those terms anyway, but keep premises on-theme).
+# Theme queue for fitness/wellness/nutrition Reels (reels.py). One theme per
+# line, under 120 characters. Lines starting with # and blank lines are
+# ignored. Movement/form/recovery/nutrition FACTS only - never a diet plan,
+# weight-loss claim, or named supplement (guardrails.py blocks those terms
+# anyway, but keep premises on-theme: state a fact, not a prescription).
 
 fixing knees caving in during a squat
 why a neutral spine matters during deadlifts
@@ -23,3 +24,14 @@ a quick fix for wrists that hurt during push-ups
 why posture during a plank protects your lower back
 stretching your calves to improve running form
 a simple breathing pattern for steady cardio pacing
+why protein helps repair muscle after a workout
+why hydration affects energy and focus during exercise
+why sleep quality affects muscle recovery as much as training
+why a short walk after eating can help digestion
+why eating before a workout changes available energy
+the role electrolytes play during long exercise
+why stretching after exercise differs from stretching before
+why muscle soreness a day later is a normal repair signal
+how the body uses carbohydrates differently during exercise
+why consistent sleep timing affects workout performance
+why warming up gradually raises muscle temperature safely

@@ -464,6 +464,76 @@ def publish_reel(video_path: Path, slug: str, title: str, category: str,
                                f"reel-{category}")
 
 
+def post_image(image_url: str, caption: str) -> str:
+    """Post a single feed image (not a Reel/video). Image containers on the
+    Graph API are typically ready near-instantly, so this uses a short
+    status-check loop instead of the long video-processing wait."""
+    uid, token = _ig_env()
+    if not uid or not token:
+        raise PipelineError("IG_USER_ID / IG_ACCESS_TOKEN not set - see INSTAGRAM_SETUP.md")
+    r = requests.post(f"{GRAPH}/{uid}/media",
+                      data={"image_url": image_url, "caption": caption,
+                            "access_token": token}, timeout=30)
+    if not r.ok:
+        raise PipelineError(f"Instagram image container create failed ({r.status_code}): {r.text}")
+    creation_id = r.json()["id"]
+
+    for _ in range(6):
+        s = requests.get(f"{GRAPH}/{creation_id}",
+                         params={"fields": "status_code", "access_token": token}, timeout=15)
+        if not s.ok:
+            raise PipelineError(f"Instagram status check failed ({s.status_code}): {s.text}")
+        status = s.json().get("status_code")
+        if status in ("FINISHED", None):
+            break
+        if status == "ERROR":
+            raise PipelineError(f"Instagram failed to process the image: {s.json()}")
+        time.sleep(3)
+    else:
+        raise PipelineError("Instagram image processing timed out")
+
+    p = requests.post(f"{GRAPH}/{uid}/media_publish",
+                      data={"creation_id": creation_id, "access_token": token}, timeout=30)
+    if not p.ok:
+        raise PipelineError(f"Instagram publish failed ({p.status_code}): {p.text}")
+    return p.json()["id"]
+
+
+def publish_fact_image(image_path: Path, slug: str, caption: str, cfg: dict) -> dict | None:
+    """Host + post a single 'mind-blowing fact' feed image in one shot. Never
+    raises; returns fields to merge into the history.jsonl entry on success,
+    or None if staging itself failed."""
+    if not is_configured():
+        print("[instagram] not configured - skipping fact-image post")
+        return None
+    try:
+        urls = _upload_to_release([image_path], f"fact-{slug}")
+        image_url = urls[image_path.name]
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] fact-image staging failed for {slug}: {e}")
+        return None
+
+    result: dict = {"instagram_fact_image_url": image_url}
+    try:
+        media_id = post_image(image_url, caption)
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] FAILED to post fact image {slug}: {e}")
+        result["instagram_last_error"] = str(e)
+        return result
+
+    result["instagram_posted"] = True
+    result["instagram_media_id"] = media_id
+
+    youtube_url = cfg.get("social", {}).get("youtube_url", "").strip()
+    if youtube_url:
+        try:
+            post_comment(media_id, f"Full video: {youtube_url}")
+            result["instagram_commented"] = True
+        except Exception as e:  # noqa: BLE001
+            print(f"[instagram] posted fact image {slug} but comment failed: {e}")
+    return result
+
+
 def _build_caption(entry: dict, cfg: dict) -> str:
     social = cfg.get("social", {})
     handle = social.get("youtube_handle", "").strip()

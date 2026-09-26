@@ -1,15 +1,22 @@
 name: reels
 
-# One satisfying/soothing/fitness-tip Reel per day, posted straight to
-# Instagram (Instagram-only content - no YouTube upload). Rotates category
-# based on history.jsonl, not the calendar day - see reels.py. Time below is
-# UTC, converted from Mountain Time (currently MDT, UTC-6): 18:17 UTC =
-# ~12:17pm Mountain, clear of every other scheduled slot in this repo.
+# Three separate daily Instagram-only Reels - satisfying, soothing, and
+# fitness/wellness/nutrition - each on its own schedule slot (not a
+# rotation). Times below are UTC, converted from Mountain Time (currently
+# MDT, UTC-6), and picked clear of every other scheduled slot in this repo
+# (video/short publish times, the instagram post-due checks, story.yml).
 on:
   schedule:
-    - cron: "17 18 * * 1-5"
+    - cron: "17 18 * * 1-5"    # satisfying (~12:17pm Mountain)
+    - cron: "26 19 * * 1-5"    # soothing   (~1:26pm Mountain)
+    - cron: "38 22 * * 1-5"    # fitness    (~4:38pm Mountain)
   workflow_dispatch:
     inputs:
+      category:
+        description: "satisfying, soothing, or fitness"
+        type: choice
+        options: [satisfying, soothing, fitness]
+        default: satisfying
       dry_run:
         description: "render only, do not post"
         type: boolean
@@ -100,6 +107,23 @@ jobs:
               -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
               config.example.toml > config.toml
 
+      - name: Determine this run's category
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=manual"                       >> "$GITHUB_OUTPUT"
+            echo "category=${{ inputs.category }}"    >> "$GITHUB_OUTPUT"
+          else
+            case "${{ github.event.schedule }}" in
+              "17 18 * * 1-5")  echo "name=satisfying"; echo "category=satisfying" ;;
+              "26 19 * * 1-5")  echo "name=soothing";   echo "category=soothing" ;;
+              "38 22 * * 1-5")  echo "name=fitness";    echo "category=fitness" ;;
+              *)
+                echo "::warning::unrecognised schedule '${{ github.event.schedule }}' - falling back"
+                echo "name=schedule-fallback"; echo "category=satisfying" ;;
+            esac >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run
         env:
           # Stages the rendered Reel as a public GitHub Release asset so
@@ -110,16 +134,18 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            python reels.py --slot reels-daily --dry-run
+            python reels.py --slot "${{ steps.slot.outputs.name }}" \
+                            --category "${{ steps.slot.outputs.category }}" --dry-run
           else
-            python reels.py --slot reels-daily
+            python reels.py --slot "${{ steps.slot.outputs.name }}" \
+                            --category "${{ steps.slot.outputs.category }}"
           fi
 
       - name: Upload rendered file for inspection
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rendered-reel
+          name: rendered-reel-${{ steps.slot.outputs.category }}
           path: build/*/*.mp4
           retention-days: 3
           if-no-files-found: ignore
@@ -137,7 +163,7 @@ jobs:
             echo "nothing to commit"
             exit 0
           fi
-          git commit -m "reels: reels-daily run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "reels: ${{ steps.slot.outputs.name }} run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           for i in 1 2 3 4 5; do
             if git push; then
               exit 0

@@ -1,14 +1,15 @@
-"""Fully-automated satisfying/soothing/fitness-tip Reel: rotate to the next
-category, write a short narrated script, render it vertically, and post it
-straight to Instagram (Instagram-only content, no YouTube upload).
+"""Fully-automated satisfying/soothing/fitness-wellness Reel: write a short
+narrated script for one category, render it vertically, and post it straight
+to Instagram (Instagram-only content, no YouTube upload).
 
-    .venv\\Scripts\\python reels.py                one Reel, posted
-    .venv\\Scripts\\python reels.py --dry-run       render only, do not post
-    .venv\\Scripts\\python reels.py --status        rotation + history summary
+    .venv\\Scripts\\python reels.py --category satisfying   one Reel, posted
+    .venv\\Scripts\\python reels.py --category soothing --dry-run
+    .venv\\Scripts\\python reels.py --status                 queues + history
 
-Rotates satisfying -> soothing -> fitness -> repeat, one per day, based on how
-many "reel"-format entries already exist in history.jsonl (so a render
-failure doesn't skip a category - it just retries the same slot next time).
+Each category (satisfying / soothing / fitness) posts once a day, on its own
+schedule slot in .github/workflows/reels.yml - not a rotation. --category is
+required for a real (non-status) run; without it, --status still works and
+a manual run falls back to whichever category has posted least so far.
 """
 from __future__ import annotations
 
@@ -64,31 +65,44 @@ def _record(entry: dict) -> None:
         fh.write(json.dumps(entry) + "\n")
 
 
-def _next_category(hist: list[dict]) -> str:
-    count = sum(1 for e in hist if e.get("format") == "reel")
-    return REEL_CATEGORIES[count % len(REEL_CATEGORIES)]
+def _least_posted_category(hist: list[dict]) -> str:
+    """Fallback for a manual run with no --category: whichever category has
+    the fewest uploaded entries so far, ties broken by REEL_CATEGORIES order."""
+    counts = {c: 0 for c in REEL_CATEGORIES}
+    for e in hist:
+        if e.get("format") == "reel" and e.get("status") == "uploaded":
+            c = e.get("category")
+            if c in counts:
+                counts[c] += 1
+    return min(REEL_CATEGORIES, key=lambda c: counts[c])
 
 
-def _posted_today() -> int:
+def _posted_today(category: str) -> int:
     today = dt.date.today().isoformat()
     return sum(1 for e in _history()
                if e.get("ts", "").startswith(today) and e.get("format") == "reel"
-               and e.get("status") == "uploaded")
+               and e.get("category") == category and e.get("status") == "uploaded")
 
 
-def run(slot: str, dry_run: bool) -> int:
+def run(slot: str, category: str | None, dry_run: bool) -> int:
     cfg = load_config()
     acfg = cfg.get("auto", {})
     if not acfg.get("enabled", True):
         log("[reels] disabled in config (shares [auto].enabled with auto.py)")
         return 0
 
-    if _posted_today() >= 1:
-        log("[reels] already posted today - skipping")
+    hist = _history()
+    if not category:
+        category = _least_posted_category(hist)
+        log(f"[reels] no --category given - defaulting to {category!r} (least posted)")
+    if category not in REEL_CATEGORIES:
+        log(f"[reels] unknown category {category!r} (need one of {REEL_CATEGORIES})")
+        return 1
+
+    if _posted_today(category) >= 1:
+        log(f"[reels] {category} already posted today - skipping")
         return 0
 
-    hist = _history()
-    category = _next_category(hist)
     topics_path = TOPICS[category]
     theme = ideas.next_topic(topics_path)
     if not theme:
@@ -161,10 +175,9 @@ def run(slot: str, dry_run: bool) -> int:
 def status() -> None:
     hist = [e for e in _history() if e.get("format") == "reel"]
     up = [e for e in hist if e.get("status") == "uploaded"]
-    print(f"reels posted total : {len(up)}   (today: {_posted_today()})")
-    print(f"next category      : {_next_category(_history())}")
+    print(f"reels posted total : {len(up)}")
     for cat, path in TOPICS.items():
-        print(f"  {cat:10} themes left : {ideas.remaining(path)}")
+        print(f"  {cat:10} today: {_posted_today(cat)}   themes left: {ideas.remaining(path)}")
     for e in hist[-6:]:
         print(f"  {e['ts']}  {e.get('category','?'):10} {e.get('status','?'):14} {e.get('title','')}")
 
@@ -172,6 +185,7 @@ def status() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="reels")
     ap.add_argument("--slot", default="manual")
+    ap.add_argument("--category", choices=REEL_CATEGORIES, default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
@@ -188,7 +202,7 @@ def main() -> int:
         log(f"[{args.slot}] stale lock ({age/60:.0f} min old) - taking over")
     LOCK.write_text(str(os.getpid()), encoding="utf-8")
     try:
-        return run(args.slot, args.dry_run)
+        return run(args.slot, args.category, args.dry_run)
     finally:
         LOCK.unlink(missing_ok=True)
 
