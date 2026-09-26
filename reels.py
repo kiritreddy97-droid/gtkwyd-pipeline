@@ -116,9 +116,12 @@ def run(slot: str, category: str | None, dry_run: bool) -> int:
             theme, category, model=model or writer.DEFAULT_MODEL,
             self_review=bool(acfg.get("self_review", True)))
     except Exception as e:  # noqa: BLE001
+        # Benign, expected variance (the local model doesn't always land a
+        # guardrail-passing script in 3 tries) - matches auto.py's philosophy
+        # that a writer miss is not a CI failure, just "nothing this round."
         log(f"[reels] writer failed for {category} / {theme!r}: {e}")
         ideas.mark_used(theme, topics_path)
-        return 1
+        return 0
     ideas.mark_used(theme, topics_path)
 
     from pipeline.script_parser import parse_script_text
