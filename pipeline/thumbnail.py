@@ -74,7 +74,10 @@ def _first_frame(video: Path, dest: Path) -> Path:
 
 
 def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path,
-             tags: list[str] | None = None) -> Path:
+             tags: list[str] | None = None, show_badge: bool = True) -> Path:
+    """show_badge=False skips the fact-category badge (DID YOU KNOW, SPACE,
+    ...) - used for Instagram-only story/reel content, which isn't a facts
+    video and shouldn't claim to be one."""
     from PIL import Image, ImageDraw
 
     badge_text, accent = _category(title, tags or [])
@@ -107,10 +110,11 @@ def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path
     draw.rectangle([0, 0, 12, TH], fill=accent)
 
     # category badge (top-left)
-    bf = _font(34)
-    bw = draw.textlength(badge_text, font=bf)
-    draw.rectangle([40, 34, 40 + bw + 40, 34 + 54], fill=accent)
-    draw.text((60, 43), badge_text, font=bf, fill=(15, 18, 26))
+    if show_badge:
+        bf = _font(34)
+        bw = draw.textlength(badge_text, font=bf)
+        draw.rectangle([40, 34, 40 + bw + 40, 34 + 54], fill=accent)
+        draw.text((60, 43), badge_text, font=bf, fill=(15, 18, 26))
 
     # channel handle (top-right, subtle)
     hf = _font(26)

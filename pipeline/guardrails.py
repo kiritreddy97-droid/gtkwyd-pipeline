@@ -83,7 +83,7 @@ def check_topic(topic: str) -> tuple[bool, str]:
     return True, "ok"
 
 
-def check_title(title: str) -> tuple[bool, str]:
+def check_title(title: str, kind: str = "video") -> tuple[bool, str]:
     if not (10 <= len(title) <= 100):
         return False, f"title length {len(title)} (need 10-100)"
     m = _BANNED.search(title)
@@ -91,7 +91,10 @@ def check_title(title: str) -> tuple[bool, str]:
         return False, f"title hits off-limits area: {m.group(0)!r}"
     if title.count("!") > 1 or title.isupper():
         return False, "title over-punctuated / shouting"
-    if not _ALLOWED_TITLE_SHAPES.search(title):
+    # Story titles are narrative ("The Stranger's Car") and reel titles are
+    # mood/tip-shaped ("A Calm Minute", "Fix Your Squat") - neither reads like
+    # the facts-video shapes below ("6 facts about...", "why...").
+    if kind not in ("story", "reel") and not _ALLOWED_TITLE_SHAPES.search(title):
         return False, "title doesn't read like an on-brand facts video"
     return True, "ok"
 
@@ -108,10 +111,12 @@ def check_script(text: str, kind: str = "video") -> tuple[bool, list[str]]:
     # summary actually says, so it can't be forced to the same word count
     # without risking padding/speculation - better to let it fall back to
     # the bank/AI path than stretch a thin news item artificially.
-    if kind == "short":
+    if kind in ("short", "reel"):
         lo, hi = 45, 150
     elif kind == "news":
         lo, hi = 150, 500
+    elif kind == "story":
+        lo, hi = 480, 700  # targets ~3-4 min of narration
     else:
         lo, hi = 550, 900
 

@@ -1,0 +1,24 @@
+# Theme queue for soothing Reels (reels.py). One theme per line, under 120
+# characters. Lines starting with # and blank lines are ignored.
+# Calm, restful subjects only - nature, breathing, sleep, sound, relaxation.
+
+slow rain against a window at night
+the sound of ocean waves and why it calms the mind
+a long, slow exhale and the body's relax response
+soft candlelight and why dim light helps you wind down
+a slow walk through a quiet forest
+the weight of a blanket and why pressure feels calming
+watching a campfire and why it holds our attention
+a warm cup of tea and the ritual of slowing down
+clouds drifting slowly across a calm sky
+the sound of wind through tall grass
+a cat's purr and why it is so soothing to hear
+snow falling silently at night
+a slow sunrise over calm water
+the rhythm of a rocking chair
+soft piano notes played slowly
+a quiet library and the comfort of silence
+the smell of rain on dry ground
+a lake completely still at dawn
+the pattern of a slow, steady heartbeat
+stretching gently before sleep

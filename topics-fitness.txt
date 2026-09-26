@@ -1,0 +1,25 @@
+# Theme queue for fitness-tip Reels (reels.py). One theme per line, under
+# 120 characters. Lines starting with # and blank lines are ignored.
+# Movement/form/technique tips ONLY - never diet, weight-loss, or supplements
+# (guardrails.py blocks those terms anyway, but keep premises on-theme).
+
+fixing knees caving in during a squat
+why a neutral spine matters during deadlifts
+the right way to warm up before a run
+why locking your elbows during a plank strains the joints
+a simple cue to fix rounded shoulders while sitting
+why breathing out on the effort part of a lift helps
+stretching your hip flexors after sitting all day
+the right foot position for a stable lunge
+why a slow, controlled rep beats a fast one
+a simple test for tight hamstrings
+why warming up your ankles helps your squat depth
+the correct grip width for a push-up
+why your shoulders should stay away from your ears while lifting
+a simple mobility drill for a stiff lower back
+why resting between sets matters as much as the sets
+the right way to land softly from a jump
+a quick fix for wrists that hurt during push-ups
+why posture during a plank protects your lower back
+stretching your calves to improve running form
+a simple breathing pattern for steady cardio pacing

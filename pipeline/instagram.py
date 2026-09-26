@@ -32,6 +32,7 @@ import datetime as dt
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import time
@@ -310,20 +311,19 @@ def is_configured() -> bool:
     return bool(uid and token)
 
 
-def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str:
-    uid, token = _ig_env()
-    if not uid or not token:
-        raise PipelineError("IG_USER_ID / IG_ACCESS_TOKEN not set - see INSTAGRAM_SETUP.md")
-
-    data = {"media_type": "REELS", "video_url": video_url,
+def _create_container(uid: str, token: str, media_type: str, video_url: str,
+                      caption: str, cover_url: str | None) -> str:
+    data = {"media_type": media_type, "video_url": video_url,
            "caption": caption, "access_token": token}
     if cover_url:
         data["cover_url"] = cover_url
     r = requests.post(f"{GRAPH}/{uid}/media", data=data, timeout=30)
     if not r.ok:
         raise PipelineError(f"Instagram container create failed ({r.status_code}): {r.text}")
-    creation_id = r.json()["id"]
+    return r.json()["id"]
 
+
+def _wait_and_publish(uid: str, token: str, creation_id: str) -> str:
     for _ in range(30):
         time.sleep(10)
         s = requests.get(f"{GRAPH}/{creation_id}",
@@ -345,6 +345,35 @@ def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str
     return p.json()["id"]
 
 
+def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str:
+    uid, token = _ig_env()
+    if not uid or not token:
+        raise PipelineError("IG_USER_ID / IG_ACCESS_TOKEN not set - see INSTAGRAM_SETUP.md")
+    creation_id = _create_container(uid, token, "REELS", video_url, caption, cover_url)
+    return _wait_and_publish(uid, token, creation_id)
+
+
+# Standard Reels are capped at ~90s by the Content Publishing API. The
+# storytelling posts run 3-4 minutes, so REELS gets tried first (keeps the
+# Reels-tab placement/reach for anything short enough) and only falls back to
+# plain feed VIDEO when Instagram rejects it specifically for being too long -
+# any other error still raises normally rather than masking a real failure.
+_LENGTH_REJECTION = re.compile(r"\b(too long|duration|maximum.*(?:length|seconds)|90 ?s)\b", re.I)
+
+
+def post_video_or_reel(video_url: str, caption: str, cover_url: str | None = None) -> str:
+    uid, token = _ig_env()
+    if not uid or not token:
+        raise PipelineError("IG_USER_ID / IG_ACCESS_TOKEN not set - see INSTAGRAM_SETUP.md")
+    try:
+        creation_id = _create_container(uid, token, "REELS", video_url, caption, cover_url)
+    except PipelineError as e:
+        if not _LENGTH_REJECTION.search(str(e)):
+            raise
+        creation_id = _create_container(uid, token, "VIDEO", video_url, caption, cover_url)
+    return _wait_and_publish(uid, token, creation_id)
+
+
 def post_comment(media_id: str, message: str) -> str:
     _, token = _ig_env()
     r = requests.post(f"{GRAPH}/{media_id}/comments",
@@ -352,6 +381,87 @@ def post_comment(media_id: str, message: str) -> str:
     if not r.ok:
         raise PipelineError(f"Instagram comment failed ({r.status_code}): {r.text}")
     return r.json()["id"]
+
+
+def _publish_full_video(video_path: Path, slug: str, caption: str,
+                        thumb_png: Path | None, cfg: dict, tag_prefix: str) -> dict | None:
+    """Host + post a full pre-rendered vertical video in one shot. Unlike
+    stage_glimpse()/run_post_due(), there's no preceding YouTube upload to
+    protect here - this IS the whole post (storytelling reels and the
+    satisfying/soothing/fitness reels both use this) - so it stages, posts
+    and comments synchronously. Never raises; returns fields to merge into
+    the history.jsonl entry on success (including partial staging info on a
+    posting failure, for debugging), or None if staging itself failed."""
+    if not is_configured():
+        print("[instagram] not configured - skipping post")
+        return None
+    try:
+        files = [video_path]
+        cover_path = None
+        if thumb_png and thumb_png.exists():
+            tmp_dir = ROOT / "build" / "_ig_tmp"
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            cover_path = tmp_dir / f"{slug}-cover.jpg"
+            build_cover_image(thumb_png, cover_path)
+            files.append(cover_path)
+        urls = _upload_to_release(files, f"{tag_prefix}-{slug}")
+        video_url = urls[video_path.name]
+        cover_url = urls.get(cover_path.name) if cover_path else None
+        if cover_path:
+            cover_path.unlink(missing_ok=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] staging failed for {slug}: {e}")
+        return None
+
+    result: dict = {"instagram_video_url": video_url}
+    if cover_url:
+        result["instagram_cover_url"] = cover_url
+    try:
+        media_id = post_video_or_reel(video_url, caption, cover_url=cover_url)
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] FAILED to post {slug}: {e}")
+        result["instagram_last_error"] = str(e)
+        return result
+
+    result["instagram_posted"] = True
+    result["instagram_media_id"] = media_id
+
+    youtube_url = cfg.get("social", {}).get("youtube_url", "").strip()
+    if youtube_url:
+        try:
+            post_comment(media_id, f"More on the channel: {youtube_url}")
+            result["instagram_commented"] = True
+        except Exception as e:  # noqa: BLE001
+            print(f"[instagram] posted {slug} but comment failed: {e}")
+    return result
+
+
+def publish_story(video_path: Path, slug: str, title: str, thumb_png: Path | None,
+                  cfg: dict) -> dict | None:
+    handle = cfg.get("social", {}).get("youtube_handle", "").strip()
+    lines = [title, "", "An original short story, told in full - right here."]
+    if handle:
+        lines.append(f"More like this: {handle}")
+    lines.append("Follow for a new one every day \U0001F447")
+    return _publish_full_video(video_path, slug, "\n".join(lines), thumb_png, cfg, "story")
+
+
+_REEL_TAGLINES = {
+    "satisfying": "Oddly satisfying, for your feed ✨",
+    "soothing": "A little calm for your day \U0001F343",
+    "fitness": "Quick tip, done right \U0001F4AA",
+}
+
+
+def publish_reel(video_path: Path, slug: str, title: str, category: str,
+                 thumb_png: Path | None, cfg: dict) -> dict | None:
+    handle = cfg.get("social", {}).get("youtube_handle", "").strip()
+    lines = [title, "", _REEL_TAGLINES.get(category, "")]
+    if handle:
+        lines.append(f"More like this: {handle}")
+    lines.append("Follow for more \U0001F447")
+    return _publish_full_video(video_path, slug, "\n".join(lines), thumb_png, cfg,
+                               f"reel-{category}")
 
 
 def _build_caption(entry: dict, cfg: dict) -> str:

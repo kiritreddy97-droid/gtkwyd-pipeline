@@ -51,6 +51,9 @@ def main() -> int:
     ap.add_argument("--no-captions", action="store_true")
     ap.add_argument("--short", action="store_true",
                     help="render a vertical YouTube Short (1080x1920, adds #Shorts)")
+    ap.add_argument("--portrait", action="store_true",
+                    help="render vertical 1080x1920 without Shorts-specific "
+                         "behavior (for Instagram-only content, e.g. stories)")
     ap.add_argument("--keep", action="store_true",
                     help="keep the working directory even on success")
     args = ap.parse_args()
@@ -65,8 +68,9 @@ def main() -> int:
     check_ffmpeg()
     cfg = load_config()
     script = parse_script(args.script)
-    if args.short:
+    if args.short or args.portrait:
         cfg.setdefault("project", {})["orientation"] = "portrait"
+    if args.short:
         cfg.setdefault("music", {})
         cfg["music"]["volume"] = float(cfg["music"].get("short_volume", 0.16))
     w, h = dims(cfg)
@@ -177,7 +181,7 @@ def main() -> int:
     try:
         from pipeline import thumbnail
         thumbnail.generate(script.title, channel, first_asset, workdir, thumb,
-                           tags=script.tags)
+                           tags=script.tags, show_badge=not args.portrait)
     except Exception as e:
         print(f"[thumb]  skipped ({e})")
         thumb = None

@@ -343,7 +343,7 @@ def _normalize(raw: str, topic: str, kind: str = "video") -> str:
     # generate_news_script) - this used to hard-cap at 6 regardless of kind,
     # which silently truncated every longer video script back down to ~1
     # minute's worth of scenes before the length check ever saw it.
-    cap = {"short": 4, "news": 8}.get(kind, 12)
+    cap = {"short": 4, "reel": 4, "news": 8}.get(kind, 12)
     if len(scenes) > cap:
         scenes = scenes[:cap]
 
@@ -375,12 +375,38 @@ _REVIEW_PROMPT = textwrap.dedent("""\
     {script}
     """)
 
+_STORY_REVIEW_PROMPT = textwrap.dedent("""\
+    Review this short fictional story. Reply with exactly "OK" if all of the
+    following are true: it is an original story (not a retelling or lightly
+    renamed version of an existing book, film, show, or real public figure's
+    story), it stays family-friendly (no violence, death on-screen, or content
+    beyond mild peril), and it avoids politics or religion. Otherwise, briefly
+    name what's wrong.
 
-def _self_review(script_md: str, model: str) -> tuple[bool, str]:
+    STORY:
+    {script}
+    """)
+
+_REEL_REVIEW_PROMPT = textwrap.dedent("""\
+    Review this short narration for a satisfying/soothing/fitness-tip social
+    video. Reply with exactly "OK" if all of the following are true: any
+    factual or how-to claim is standard, uncontroversial knowledge (never
+    diet, weight-loss, supplement, or medical advice), the tone stays calm
+    and family-friendly, and it avoids politics or religion. Otherwise,
+    briefly name what's wrong.
+
+    NARRATION:
+    {script}
+    """)
+
+
+def _self_review(script_md: str, model: str, kind: str = "video") -> tuple[bool, str]:
+    prompt_template = {"story": _STORY_REVIEW_PROMPT,
+                       "reel": _REEL_REVIEW_PROMPT}.get(kind, _REVIEW_PROMPT)
     try:
         resp = requests.post(
             f"{OLLAMA_URL}/api/generate",
-            json={"model": model, "prompt": _REVIEW_PROMPT.format(script=script_md),
+            json={"model": model, "prompt": prompt_template.format(script=script_md),
                   "stream": False, "options": {"temperature": 0.0, "num_predict": 250}},
             timeout=300,
         )
@@ -456,6 +482,333 @@ def generate_news_script(headline: str, summary: str, source: str,
             return md
         last = ([] if t_ok else [f"title: {t_why}"]) + s_issues
     raise PipelineError(f"news script failed for {headline!r}: {' | '.join(last)}")
+
+
+_STORY_EXAMPLE = textwrap.dedent("""\
+    ---
+    title: The Stranger's Umbrella
+    description_hook: An old man forgets his umbrella on a bus, and a stranger spends the whole ride trying to return it.
+    tags: short story, kindness, strangers, bus, rain
+    ---
+
+    ## The bus
+    Rain streaked the windows of the evening bus as Arthur, seventy-eight and
+    slow on his feet, shuffled toward the back and lowered himself into a
+    seat. He set his umbrella against the window, the way he always did, and
+    closed his eyes.
+    [[elderly man on rainy bus]] [[rain on bus window]]
+
+    ## The stop
+    Two stops later he rose stiffly and stepped down into the rain, forgetting
+    the umbrella entirely. A young woman near the front, headphones still in,
+    caught the movement out of the corner of her eye and saw it leaning there,
+    already forgotten.
+    [[bus stop in rain]] [[young woman on bus]]
+
+    ## The decision
+    She could have left it. It was raining, she had somewhere to be, and he
+    was already three doors down the street. Instead she grabbed it, called
+    to the driver to wait, and stepped off into the downpour after him.
+    [[woman running in rain]] [[umbrella on empty seat]]
+
+    ## Catching up
+    "Sir! Your umbrella!" she called, jogging to close the distance, rain
+    soaking through her jacket. Arthur turned, confused for a moment, then
+    saw what she was holding and broke into a slow, surprised smile.
+    [[woman calling out in rain]] [[elderly man turning around]]
+
+    ## A small trade
+    He thanked her and, before she could protest, pressed a folded five dollar
+    bill into her hand "for the trouble." She tried to refuse it, but he was
+    already walking away, waving off her objection with one hand.
+    [[hands exchanging money]] [[man walking away in rain]]
+
+    ## What she found later
+    Home and dry, she unfolded the bill to put it in a drawer and stopped. In
+    careful handwriting on the inside, someone had written a phone number and
+    three words: "call your mother."
+    [[folded bill on table]] [[handwriting close up]]
+
+    ## The call
+    She sat with it for a long moment before picking up her phone. It rang
+    twice. When her mother answered, surprised to hear from her on a
+    Tuesday, she said the only thing that came to mind: "I just wanted to
+    hear your voice."
+    [[woman looking at phone]] [[phone call in dim room]]
+
+    ## Ordinary evening
+    Outside, the rain kept falling on a street where a stranger's small,
+    deliberate kindness had already moved on to someone else entirely,
+    the way these things do, unnoticed and unrepeated.
+    [[rainy street at night]] [[city lights reflected in rain]]
+    """)
+
+_STORY_SYSTEM = textwrap.dedent(f"""\
+    You write short, ORIGINAL fictional stories, narrated like a short film,
+    for the channel "Get To Know What You Don't". You are given a one-line
+    premise or theme. Write a complete, satisfying story around it - not a
+    summary of one, an actual story with real narrative beats.
+
+    HARD RULES:
+    - The story must be entirely ORIGINAL - never retell, adapt, or lightly
+      rename an existing book, film, show, or public figure's story. Invent
+      your own characters, names, and specifics from the premise.
+    - Family-friendly: no violence, gore, death of a character on-screen,
+      romance beyond warmth, or frightening/horror content. No politics,
+      religion, or real public figures.
+    - Third person, past tense. Give it a real shape: a setup, something that
+      shifts or is discovered partway through, and a resolution or quiet
+      final beat - like the example below, not a flat list of events.
+    - Concrete and visual: every scene should describe something a camera
+      could actually show, so a matching stock clip can be found for it.
+
+    FORMAT - copy this structure EXACTLY. 8 to 10 scenes, telling ONE
+    continuous story in order (not disjointed clips - each scene continues
+    directly from the last). Each scene: a "## " heading, then 3-5 sentences
+    of narration, then one line with two [[double-bracket]] visual search
+    phrases describing what's on screen in that scene (concrete nouns: a
+    person, a place, an object, an action - not abstract ideas). Aim for
+    roughly 500-650 words of narration in total.
+
+    EXAMPLE:
+{textwrap.indent(_STORY_EXAMPLE, "    ")}
+    """)
+
+
+def generate_story_script(theme: str, model: str = DEFAULT_MODEL, attempts: int = 3,
+                          self_review: bool = True) -> str:
+    """Return validated fictional-story script markdown, or raise PipelineError."""
+    ok, why = guardrails.check_topic(theme)
+    if not ok:
+        raise PipelineError(f"story theme rejected ({why}): {theme}")
+    if not _ollama_up():
+        raise PipelineError(
+            "Ollama is not running. Start it (setup-auto.ps1), or the run will "
+            "fall back to the story bank."
+        )
+
+    from .script_parser import parse_script_text
+
+    prompt = (f"Premise: {theme}\n\nWrite the story now, in the exact format "
+             f"from the example. Reply with only the markdown.")
+    last: list[str] = []
+    for _ in range(attempts):
+        try:
+            resp = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": model, "system": _STORY_SYSTEM, "prompt": prompt,
+                      "stream": False,
+                      "options": {"temperature": 0.8, "num_predict": 1500}},
+                timeout=600,
+            )
+            resp.raise_for_status()
+            md = _normalize(resp.json().get("response", ""), theme, kind="story")
+            script = parse_script_text(md, fallback_title=theme)
+        except (PipelineError, Exception) as e:  # noqa: BLE001
+            last = [f"normalise/parse: {e}"]
+            continue
+
+        t_ok, t_why = guardrails.check_title(script.title, kind="story")
+        s_ok, s_issues = guardrails.check_script(
+            " ".join(sc.narration for sc in script.scenes), kind="story")
+        n_ok = 6 <= len(script.scenes) <= 12
+        if not (t_ok and s_ok and n_ok):
+            last = ([] if t_ok else [f"title: {t_why}"]) + s_issues
+            if not n_ok:
+                last.append(f"{len(script.scenes)} scenes (need 6-12)")
+            continue
+
+        if self_review:
+            ok2, note = _self_review(md, model, kind="story")
+            if not ok2:
+                last = [f"self-review flagged: {note}"]
+                continue
+        return md
+
+    raise PipelineError(f"no clean story for {theme!r} after {attempts} tries. "
+                        f"last issues: {' | '.join(last)}")
+
+
+# --------------------------------------------------------------------------- #
+# Instagram-only "reel" categories: satisfying / soothing / fitness tips.
+# Narrated like the rest of the channel (not wordless ASMR), just off the
+# facts-video theme - so they get their own title/word-count guardrail
+# bypass (kind="reel") and their own review prompt instead of the strict
+# fact-checker one.
+# --------------------------------------------------------------------------- #
+REEL_CATEGORIES = ("satisfying", "soothing", "fitness")
+
+_REEL_GUIDANCE = {
+    "satisfying": (
+        "an oddly satisfying, mesmerizing process - something being cut, "
+        "poured, organised, folded, or transformed in a clean, pleasing way. "
+        "Narrate what's happening and why it looks so satisfying (repetition, "
+        "clean motion, texture, sound). Describe a plausible generic process, "
+        "don't invent implausible specifics."
+    ),
+    "soothing": (
+        "a calm, grounding moment - a gentle natural phenomenon, a slow body "
+        "or breathing process, or a simple restful fact about sleep, sound, "
+        "or relaxation. The goal is to help the viewer unwind for 30-40 "
+        "seconds, not to teach a lot of facts."
+    ),
+    "fitness": (
+        "one single, correct, well-known movement or exercise-form tip - a "
+        "stretch, a posture cue, a warm-up habit, or a simple body-mechanics "
+        "fact. Never diet, weight-loss, supplements, or medical advice - only "
+        "movement, form, and technique."
+    ),
+}
+
+_REEL_EXAMPLES = {
+    "satisfying": textwrap.dedent("""\
+        ---
+        title: The Perfect Cut
+        description_hook: A hot knife through soap turns into a strangely calming ritual.
+        tags: satisfying, oddly satisfying, soap cutting, relaxing, asmr
+        ---
+
+        ## The setup
+        A block of soap sits under warm studio light, its surface smooth and untouched.
+        A blade rests against the edge, ready for one long, clean pass.
+        [[soap block close up]] [[knife resting on soap]]
+
+        ## The cut
+        The blade glides through in one slow motion, curling a thin ribbon away from the block.
+        The sound alone, soft and steady, is part of why this feels so calming to watch.
+        [[knife cutting soap slowly]] [[soap ribbon curling]]
+
+        ## Why it works
+        Repetition and a clean, predictable motion are what make oddly satisfying clips so soothing to the brain.
+        No surprises, no mess, just one smooth motion completing exactly as expected.
+        [[soap shavings falling]] [[question everything text]]
+        """),
+    "soothing": textwrap.dedent("""\
+        ---
+        title: A Minute to Breathe
+        description_hook: Slowing your exhale down is one of the fastest ways to calm the body.
+        tags: soothing, calm, breathing, relax, mindfulness
+        ---
+
+        ## The pattern
+        Slow rain taps against a window as the room settles into quiet.
+        Breathing out for longer than breathing in gently signals the body that it is safe to relax.
+        [[rain on window]] [[calm room interior]]
+
+        ## The science
+        A long exhale activates the vagus nerve, which naturally slows the heart rate.
+        It is a switch the body already knows how to flip, no equipment needed.
+        [[calm nature scene]] [[slow motion water]]
+
+        ## The moment
+        A few slow breaths like this and the shoulders start to drop on their own.
+        [[person relaxing outdoors]] [[question everything text]]
+        """),
+    "fitness": textwrap.dedent("""\
+        ---
+        title: Fix Your Squat in One Cue
+        description_hook: One small adjustment stops the knees from caving in during a squat.
+        tags: fitness tips, squat form, mobility, exercise technique, workout
+        ---
+
+        ## The mistake
+        Knees drifting inward during a squat is one of the most common form issues, even for experienced lifters.
+        It usually starts at the hips, not the knees themselves.
+        [[person squatting with poor form]] [[gym training]]
+
+        ## The fix
+        Pushing the knees out gently, in the same direction as the toes, keeps the hips properly engaged.
+        A single cue, "knees out," is often enough to correct it immediately.
+        [[person squatting with good form]] [[close up of legs during squat]]
+
+        ## Why it matters
+        Better alignment means the effort lands on the muscles meant to do the work, not the joints.
+        [[person finishing a squat]] [[question everything text]]
+        """),
+}
+
+
+def _reel_system(category: str) -> str:
+    return textwrap.dedent(f"""\
+        You write scripts for 30-40 second Instagram Reels for the channel
+        "Get To Know What You Don't". This is a "{category}" Reel:
+        {_REEL_GUIDANCE[category]}
+
+        HARD RULES:
+        - Calm, clear tone. Short sentences. No clickbait, no hype.
+        - No medical, financial, current-political, religious, or
+          controversial content. No advice beyond the tip itself for fitness
+          Reels, and no diet/weight-loss/supplement content ever.
+        - Narrate in third person or general statements - do not address the
+          viewer with commands ("you must", "you should").
+
+        FORMAT - copy EXACTLY. 3 scenes only. Each scene: a "## " heading,
+        then 2 sentences, then one line with two [[double-bracket]] image
+        search phrases describing concrete visuals. End the last scene's
+        image line with [[question everything text]].
+
+        EXAMPLE:
+{textwrap.indent(_REEL_EXAMPLES[category], "        ")}
+        """)
+
+
+def generate_reel_script(theme: str, category: str, model: str = DEFAULT_MODEL,
+                         attempts: int = 3, self_review: bool = True) -> str:
+    """Return validated satisfying/soothing/fitness-tip Reel script markdown,
+    or raise PipelineError."""
+    if category not in REEL_CATEGORIES:
+        raise PipelineError(f"unknown reel category {category!r} (need one of "
+                            f"{REEL_CATEGORIES})")
+    ok, why = guardrails.check_topic(theme)
+    if not ok:
+        raise PipelineError(f"reel theme rejected ({why}): {theme}")
+    if not _ollama_up():
+        raise PipelineError(
+            "Ollama is not running. Start it (setup-auto.ps1), or the run will "
+            "fall back to the reel bank."
+        )
+
+    from .script_parser import parse_script_text
+
+    system = _reel_system(category)
+    prompt = (f"Theme: {theme}\n\nWrite the Reel script now, in the exact "
+             f"format from the example. Reply with only the markdown.")
+    last: list[str] = []
+    for _ in range(attempts):
+        try:
+            resp = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": model, "system": system, "prompt": prompt,
+                      "stream": False,
+                      "options": {"temperature": 0.6, "num_predict": 450}},
+                timeout=600,
+            )
+            resp.raise_for_status()
+            md = _normalize(resp.json().get("response", ""), theme, kind="reel")
+            script = parse_script_text(md, fallback_title=theme)
+        except (PipelineError, Exception) as e:  # noqa: BLE001
+            last = [f"normalise/parse: {e}"]
+            continue
+
+        t_ok, t_why = guardrails.check_title(script.title, kind="reel")
+        s_ok, s_issues = guardrails.check_script(
+            " ".join(sc.narration for sc in script.scenes), kind="reel")
+        n_ok = 2 <= len(script.scenes) <= 5
+        if not (t_ok and s_ok and n_ok):
+            last = ([] if t_ok else [f"title: {t_why}"]) + s_issues
+            if not n_ok:
+                last.append(f"{len(script.scenes)} scenes (need 2-5)")
+            continue
+
+        if self_review:
+            ok2, note = _self_review(md, model, kind="reel")
+            if not ok2:
+                last = [f"self-review flagged: {note}"]
+                continue
+        return md
+
+    raise PipelineError(f"no clean {category} reel for {theme!r} after {attempts} "
+                        f"tries. last issues: {' | '.join(last)}")
 
 
 # --------------------------------------------------------------------------- #

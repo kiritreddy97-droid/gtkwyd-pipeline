@@ -86,6 +86,51 @@ posts. Runs across two files: `auto.py` stages the clip right after upload
 (`pipeline/instagram.py`), and `.github/workflows/instagram.yml` posts
 whatever's due on a schedule.
 
+## Instagram storytelling Reels (`story.py`)
+
+Once a day, separately from the video/Short schedule, `story.py` picks a
+premise from `topics-stories.txt`, has the AI writer invent an **original**
+3-4 minute fictional short story (never a retelling of an existing book/film -
+see `pipeline.guardrails`/`pipeline.writer`'s `kind="story"` checks), renders
+it as a vertical video via `make_video.py --portrait`, and posts the **whole**
+video straight to Instagram (`pipeline.instagram.publish_story`) - this is
+Instagram-only content, there's no matching YouTube upload. Standard Reels
+cap out around ~90s, so posting tries `media_type=REELS` first and falls back
+to plain feed `VIDEO` only when Instagram rejects it specifically for length
+(`pipeline.instagram.post_video_or_reel`).
+
+```powershell
+.\.venv\Scripts\python.exe story.py                # generate, render, post
+.\.venv\Scripts\python.exe story.py --dry-run      # render only
+.\.venv\Scripts\python.exe story.py --status       # queue + history
+```
+
+Scheduled by `.github/workflows/story.yml` (~5:43pm Mountain, weekdays). Needs
+the same `IG_USER_ID`/`IG_ACCESS_TOKEN` secrets as the regular glimpse posts.
+
+## Instagram satisfying / soothing / fitness-tip Reels (`reels.py`)
+
+A second, separate Instagram-only daily post, alongside the storytelling
+Reel. `reels.py` rotates through three categories - satisfying, soothing,
+fitness tips - one per day, based on how many `format: "reel"` entries already
+exist in `history.jsonl` (a render failure retries the same category next
+time instead of skipping it). Each category has its own theme queue
+(`topics-satisfying.txt` / `topics-soothing.txt` / `topics-fitness.txt`) and
+its own AI-writer system prompt (`pipeline.writer.generate_reel_script`,
+`kind="reel"` in guardrails) - narrated like the rest of the channel (not
+wordless ASMR), ~30-40s, same portrait render + Instagram posting path as
+`story.py` (`pipeline.instagram.publish_reel`). Fitness scripts are
+guardrail-blocked from diet/weight-loss/supplement content by design - only
+movement/form tips.
+
+```powershell
+.\.venv\Scripts\python.exe reels.py                # generate, render, post
+.\.venv\Scripts\python.exe reels.py --dry-run      # render only
+.\.venv\Scripts\python.exe reels.py --status       # rotation + history
+```
+
+Scheduled by `.github/workflows/reels.yml` (~12:17pm Mountain, weekdays).
+
 ## Monitoring
 
 ```powershell

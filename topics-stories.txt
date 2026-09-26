@@ -1,0 +1,36 @@
+# Premise queue for the AI story writer (story.py). One premise per line,
+# under 120 characters (guardrails.check_topic's limit). Lines starting with
+# # and blank lines are ignored. Consumed top to bottom.
+# These become ORIGINAL fictional short stories (never adaptations of real
+# books/films/shows), family-friendly, no politics or religion.
+
+an old man crossing a busy road when a car stops and the driver hands him something
+a librarian who finds a note tucked into a returned book, meant just for her
+a lighthouse keeper who spots an empty boat drifting toward the rocks in a storm
+a delivery driver sent to the same empty house every week, who finally knocks
+a street musician whose nightly tune means more to one stranger than she knows
+a woman who inherits a house with a locked room the family always avoided
+a night train conductor who notices the same passenger riding nowhere, every night
+a boy who finds a message in a bottle on a lake far from any ocean
+a park chess player beaten for the first time by a stranger who won't give a name
+a locksmith called to open a safe sealed shut inside a house for fifty years
+a photographer who develops a photo of a place she has never been
+a farmer whose scarecrow keeps moving closer to the house every morning
+a barista who gets the same silent order from a stranger every night at closing
+a retired postman who finds one last undelivered letter, decades old
+a night museum guard who hears footsteps in a wing closed for renovation
+a fisherman who pulls up a sealed chest that matches his grandfather's old story
+a teacher who finds an old key that opens a door no longer on any floor plan
+a hiker who finds an unmapped cabin with a fire lit and a table set for one
+a violin maker who gets a broken violin to repair with his own name carved inside
+a taxi driver whose passenger gives an address that turns out to be his own
+a groundskeeper whose garden blooms overnight into flowers no one planted
+a night radio operator who picks up a signal repeating the same three words
+a bookstore owner who keeps getting a book returned by a customer he never sold to
+a night nurse who finds a chart describing a recovery that hasn't happened yet
+a bell ringer who finds the church bell rings itself before anything important
+a ranger who finds a trail marked with stones that were not there last week
+a tailor asked to alter a wedding dress for a wedding no one seems to remember
+a ferry operator who notices one more passenger leaving than ever boarded
+a beekeeper who returns to find the hives rearranged into a message
+a night baker who finds a warm loaf waiting on the counter before she arrives

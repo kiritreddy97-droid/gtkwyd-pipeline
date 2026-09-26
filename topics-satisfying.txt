@@ -1,0 +1,25 @@
+# Theme queue for satisfying Reels (reels.py). One theme per line, under
+# 120 characters. Lines starting with # and blank lines are ignored.
+# These describe a generic oddly-satisfying process for the AI writer to
+# narrate over stock footage - not a specific real product or brand.
+
+a hot knife slicing cleanly through a block of soap
+kinetic sand being cut and pressed into perfect shapes
+a stack of pancakes being poured in one smooth pour
+melted chocolate being poured slowly over a cake
+a fresh coat of paint being rolled in perfectly even strokes
+a log being split cleanly in one axe strike
+a domino chain falling in a long, perfect wave
+a ball of dough being kneaded and folded rhythmically
+a pressure washer stripping grime off pavement in clean lines
+a spool of thread being wound perfectly tight
+a stack of coins being sorted and counted quickly
+a garden hedge being trimmed into a perfectly straight line
+a potter shaping clay into a smooth, symmetrical bowl
+a sand pattern being raked into perfect parallel lines
+a cake being frosted in one smooth, even layer
+a rope being coiled into a perfect spiral
+a leaf blower clearing a path in one clean sweep
+a stack of pancakes being flipped in perfect sync
+a glass being filled with layered, colorful liquid
+a puzzle's final piece clicking into place
