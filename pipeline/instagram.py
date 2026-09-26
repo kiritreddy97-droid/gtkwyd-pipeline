@@ -42,7 +42,12 @@ import requests
 
 from .util import FFMPEG, ROOT, PipelineError, check_ffmpeg, ffprobe_duration, load_config, run
 
-GRAPH = "https://graph.facebook.com/v21.0"
+# Tokens from the "Instagram API with Instagram Login" flow (the IGAA...
+# prefix) are only valid against graph.instagram.com, not graph.facebook.com -
+# sending one to the Facebook host gets "Cannot parse access token" (code
+# 190), which looks like a corrupted/malformed token but is actually just the
+# wrong API host for this token type.
+GRAPH = "https://graph.instagram.com/v21.0"
 
 IG_W, IG_H = 1080, 1920
 HOOK_SECONDS = 8.0
