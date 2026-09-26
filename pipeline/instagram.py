@@ -40,7 +40,8 @@ from pathlib import Path
 
 import requests
 
-from .util import FFMPEG, ROOT, PipelineError, check_ffmpeg, ffprobe_duration, load_config, run
+from .util import (ASSETS_DIR, FFMPEG, ROOT, PipelineError, check_ffmpeg,
+                   ffprobe_duration, load_config, run)
 
 # Tokens from the "Instagram API with Instagram Login" flow (the IGAA...
 # prefix) are only valid against graph.instagram.com, not graph.facebook.com -
@@ -99,7 +100,16 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
     text_file = out.with_suffix(".txt")
     text_file.write_text("\n".join(lines), encoding="utf-8")
 
-    vf = (f"drawtext=textfile='{text_file.as_posix()}':fontcolor=white:fontsize=64:"
+    # fontfile= explicit, not relying on system fontconfig to resolve a
+    # generic family name - fontconfig can be missing/misconfigured (seen
+    # locally on Windows: "Cannot load default config file"), and this is
+    # cheap insurance against the same fragility ever surfacing in CI too.
+    # ffmpeg's filter syntax uses ':' as an option separator, so a Windows
+    # drive-letter colon (C:/...) must be escaped or it's parsed as the end
+    # of the fontfile value.
+    font_path = (ASSETS_DIR / "fonts" / "Anton-Regular.ttf").as_posix().replace(":", r"\:")
+    vf = (f"drawtext=textfile='{text_file.as_posix()}':fontfile='{font_path}':"
+          f"fontcolor=white:fontsize=64:"
           f"line_spacing=18:x=(w-text_w)/2:y=(h-text_h)/2:"
           f"box=1:boxcolor=black@0.45:boxborderw=30")
     run([FFMPEG, "-y",
