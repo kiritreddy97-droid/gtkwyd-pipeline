@@ -95,3 +95,6 @@ instagram_glimpse = true
 [social]
 # Shown on the Instagram CTA outro card and in the post caption.
 youtube_handle = ""
+# Posted as a comment on every Instagram Reel once it publishes (in addition
+# to "link in bio" in the caption). Leave blank to skip commenting.
+youtube_url = "https://www.youtube.com/@GETTOKNOWWHATYOUDONT"

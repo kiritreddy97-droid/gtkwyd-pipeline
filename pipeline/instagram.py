@@ -141,8 +141,17 @@ def build_glimpse_clip(video_path: Path, out_path: Path, cfg: dict) -> Path:
     concat_list = tmp / f"{stem}_concat.txt"
     concat_list.write_text(
         "".join(f"file '{p.resolve().as_posix()}'\n" for p in parts), encoding="utf-8")
+    # Re-encode here rather than -c copy: the CTA segment's audio comes from a
+    # completely separate pipeline (fresh Piper TTS -> AAC) than the hook/
+    # highlight segments (extracted from the fully mixed/mastered original
+    # video), and stream-copying segments whose AAC frame boundaries don't
+    # line up produces exactly the stuttering/repeated-syllable glitch
+    # reported at the join into the outro ("for fo for fo... more co
+    # cococococ"). Re-encoding rebuilds a clean, consistent audio stream
+    # across the join instead of splicing incompatible frame boundaries.
     run([FFMPEG, "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
-         "-c", "copy", out_path])
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", out_path])
 
     for p in [*parts, concat_list]:
         p.unlink(missing_ok=True)
@@ -315,6 +324,15 @@ def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str
     return p.json()["id"]
 
 
+def post_comment(media_id: str, message: str) -> str:
+    _, token = _ig_env()
+    r = requests.post(f"{GRAPH}/{media_id}/comments",
+                      data={"message": message, "access_token": token}, timeout=30)
+    if not r.ok:
+        raise PipelineError(f"Instagram comment failed ({r.status_code}): {r.text}")
+    return r.json()["id"]
+
+
 def _build_caption(entry: dict, cfg: dict) -> str:
     social = cfg.get("social", {})
     handle = social.get("youtube_handle", "").strip()
@@ -372,6 +390,15 @@ def run_post_due() -> int:
         except Exception as ex:  # noqa: BLE001
             e["instagram_last_error"] = str(ex)
             print(f"[instagram] FAILED to post {e.get('slug')}: {ex}")
+            continue
+
+        # Best-effort: a failed comment must never undo a successful post.
+        youtube_url = cfg.get("social", {}).get("youtube_url", "").strip()
+        if youtube_url:
+            try:
+                post_comment(media_id, f"Full video here: {youtube_url}")
+            except Exception as ex:  # noqa: BLE001
+                print(f"[instagram] posted {e.get('slug')} but comment failed: {ex}")
 
     if changed:
         out = "\n".join(json.dumps(e, ensure_ascii=False) if e else "" for e in entries)
