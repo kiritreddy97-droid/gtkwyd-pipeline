@@ -1,0 +1,108 @@
+name: repost-fixed
+
+# One-off remediation, triggered by hand only (no schedule): the channel
+# owner manually deleted the old, buggy Instagram Reels (audio stutter,
+# garbled cover text) from Instagram itself. Automation has no way to detect
+# a manual delete on Instagram's side, so nothing reposts on its own - this
+# re-renders each affected video fresh from its original script and posts a
+# new glimpse+cover using the crossfade/clean-thumbnail fixes already
+# shipped, via repost_fixed_reels.py. Can take well over an hour for all 17;
+# it commits progress after every single repost (not just at the end), so a
+# timeout or interruption never loses work already posted - just re-run this
+# workflow again and it picks up wherever it left off.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gtkwyd-repost-fixed
+  cancel-in-progress: false
+
+jobs:
+  repost-fixed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Cache Piper binary
+        id: cache-piper
+        uses: actions/cache@v4
+        with:
+          path: piper
+          key: piper-linux-x86_64-2023.11.14-2
+
+      - name: Install Piper
+        if: steps.cache-piper.outputs.cache-hit != 'true'
+        run: |
+          curl -sL -o piper.tar.gz https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz
+          tar -xzf piper.tar.gz
+          rm piper.tar.gz
+      - run: chmod +x piper/piper
+
+      - name: Cache Piper voice model
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: piper-voice-ljspeech-high
+
+      - name: Cache Whisper model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-base-model
+
+      - name: Cache music library
+        id: cache-music
+        uses: actions/cache@v4
+        with:
+          path: assets/music
+          key: music-library-v1
+
+      - name: Download music library
+        if: steps.cache-music.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p assets/music
+          gh release download music-v1 --repo "${{ github.repository }}" \
+            --pattern "music-library.zip" --output music-library.zip
+          unzip -q music-library.zip -d assets/music
+          rm music-library.zip
+
+      - name: Write config.toml
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+        run: |
+          sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
+              -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
+              config.example.toml > config.toml
+
+      - name: Repost fixed glimpses
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python repost_fixed_reels.py
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repost-fixed-log
+          path: repost_fixed.log
+          retention-days: 7
+          if-no-files-found: ignore
