@@ -397,6 +397,7 @@ def run_post_due() -> int:
         if youtube_url:
             try:
                 post_comment(media_id, f"Full video here: {youtube_url}")
+                e["instagram_commented"] = True
             except Exception as ex:  # noqa: BLE001
                 print(f"[instagram] posted {e.get('slug')} but comment failed: {ex}")
 
