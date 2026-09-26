@@ -13,6 +13,8 @@ import datetime as dt
 import json
 import sys
 
+import requests
+
 from pipeline.util import ROOT, load_config
 
 HISTORY = ROOT / "history.jsonl"
@@ -24,6 +26,23 @@ def log(msg: str) -> None:
     print(line)
     with LOG.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
+
+
+def _download_youtube_thumb(video_id: str, dest) -> bool:
+    """The card's background should look like it belongs to this specific
+    video, not a blank branded gradient - YouTube always hosts a thumbnail at
+    a predictable URL, no API key needed, so reuse that directly. Tries the
+    high-res version first, falls back to the guaranteed-to-exist default."""
+    for name in ("maxresdefault.jpg", "hqdefault.jpg"):
+        url = f"https://img.youtube.com/vi/{video_id}/{name}"
+        try:
+            r = requests.get(url, timeout=15)
+            if r.ok and len(r.content) > 2000:  # maxres 404s as a tiny placeholder image
+                dest.write_bytes(r.content)
+                return True
+        except requests.RequestException:
+            continue
+    return False
 
 
 def _pick_candidate() -> tuple[int, dict] | tuple[None, None]:
@@ -66,7 +85,19 @@ def run(dry_run: bool) -> int:
     tmp_dir = ROOT / "build" / "_fact_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
     img_path = tmp_dir / f"{slug}-fact.jpg"
-    fact_card.generate(hook, title, channel, img_path, seed=abs(hash(slug)))
+
+    bg_path = None
+    if entry.get("video_id"):
+        candidate = tmp_dir / f"{slug}-bg.jpg"
+        if _download_youtube_thumb(entry["video_id"], candidate):
+            bg_path = candidate
+            log(f"[fact] using YouTube thumbnail as background for {slug}")
+        else:
+            log(f"[fact] could not fetch YouTube thumbnail for {slug} - falling back to gradient")
+
+    fact_card.generate(hook, title, channel, img_path, seed=abs(hash(slug)), bg_image_path=bg_path)
+    if bg_path:
+        bg_path.unlink(missing_ok=True)
     log(f"[fact] built card for {slug}: {img_path}")
 
     if dry_run:

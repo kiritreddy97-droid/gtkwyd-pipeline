@@ -1,7 +1,9 @@
 """Build a single bold 'mind-blowing fact' image card for the Instagram feed
-image-post feature (fact_post.py). Deliberately NOT stock-footage-based - a
-static, branded graphic is cheap (no API calls, no rendering pipeline) and is
-built to be shared/saved, pointing back to the full YouTube video."""
+image-post feature (fact_post.py). The background is the actual video's own
+YouTube thumbnail (blurred/darkened, same treatment as the Reels cover in
+pipeline.instagram) so the post visually ties back to that specific video
+instead of a generic blank gradient card - falls back to a plain gradient
+only if no thumbnail image is available."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -52,15 +54,11 @@ def _wrap(draw, text: str, font, max_w: float) -> list[str]:
     return lines
 
 
-def generate(hook: str, title: str, channel: str, out_jpg: Path, seed: int = 0) -> Path:
+def _gradient_background(accent: tuple[int, int, int], deep: tuple[int, int, int]):
     from PIL import Image, ImageDraw
 
-    accent, deep = _PALETTES[seed % len(_PALETTES)]
     bg = Image.new("RGB", (W, H), deep)
     draw = ImageDraw.Draw(bg)
-
-    # subtle vertical gradient toward the accent color, brightest in the
-    # middle where the fact text sits.
     for y in range(H):
         t = 1.0 - abs((y / H) - 0.5) * 1.6
         t = max(0.0, min(1.0, t)) * 0.22
@@ -68,6 +66,38 @@ def generate(hook: str, title: str, channel: str, out_jpg: Path, seed: int = 0) 
         g = int(deep[1] + (accent[1] - deep[1]) * t)
         b = int(deep[2] + (accent[2] - deep[2]) * t)
         draw.line([(0, y), (W, y)], fill=(r, g, b))
+    return bg
+
+
+def _photo_background(src_path: Path):
+    """Cover-crop the source image to the full WxH canvas, blurred (shrink-
+    then-blowup - no blocky Gaussian-blur artifacts) and darkened so the
+    overlaid text stays legible - same treatment as the Reels cover image."""
+    from PIL import Image
+
+    src = Image.open(src_path).convert("RGB")
+    sw, sh = src.size
+    scale = max(W / sw, H / sh)
+    tiny = src.resize((max(1, round(sw * scale / 40)), max(1, round(sh * scale / 40))))
+    bg = tiny.resize((round(sw * scale), round(sh * scale)), Image.BILINEAR)
+    bx, by = (bg.width - W) // 2, (bg.height - H) // 2
+    bg = bg.crop((bx, by, bx + W, by + H))
+    return Image.eval(bg, lambda p: int(p * 0.45))
+
+
+def generate(hook: str, title: str, channel: str, out_jpg: Path, seed: int = 0,
+            bg_image_path: Path | None = None) -> Path:
+    from PIL import ImageDraw
+
+    accent, deep = _PALETTES[seed % len(_PALETTES)]
+    if bg_image_path and bg_image_path.exists():
+        try:
+            bg = _photo_background(bg_image_path)
+        except Exception:
+            bg = _gradient_background(accent, deep)
+    else:
+        bg = _gradient_background(accent, deep)
+    draw = ImageDraw.Draw(bg)
 
     # top label pill
     lf = _font(38)
