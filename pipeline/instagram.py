@@ -32,7 +32,6 @@ import datetime as dt
 import json
 import os
 import random
-import re
 import subprocess
 import sys
 import time
@@ -171,69 +170,38 @@ def build_glimpse_clip(video_path: Path, out_path: Path, cfg: dict) -> Path:
 # --------------------------------------------------------------------------- #
 # cover image (Reels don't get a good auto-picked cover otherwise)
 # --------------------------------------------------------------------------- #
-def _extract_cover_frame(video_path: Path, dest: Path) -> Path:
-    run([FFMPEG, "-y", "-ss", "2.5", "-i", video_path, "-vframes", "1",
-         "-vf", _vertical_filter(), dest])
-    return dest
 
 
-def build_cover_image(video_path: Path, title: str, channel: str,
-                      tags: list[str] | None, workdir: Path, out_jpg: Path) -> Path:
-    """Same visual grammar as the YouTube thumbnail (category badge + big
-    bold title over a dark-graded frame), laid out for a 9:16 Reels cover."""
-    from PIL import Image, ImageDraw
+def build_cover_image(thumb_png: Path, out_jpg: Path) -> Path:
+    """Reuse the already-built YouTube thumbnail (category badge + title
+    already composited on a clean stock frame) rather than grabbing a new
+    frame from the final rendered video - that video already has captions
+    burned in by this point, and a frame grabbed from it collided with this
+    function's own title text, producing garbled overlapping text. The
+    thumbnail is landscape (1280x720); this letterbox-fits it onto the 9:16
+    canvas with a blurred, darkened copy of itself filling the rest, instead
+    of a hard crop that would cut off the badge/title."""
+    from PIL import Image, ImageFilter
 
-    from .thumbnail import _category, _font, _wrap
+    src = Image.open(thumb_png).convert("RGB")
+    sw, sh = src.size
 
-    badge_text, accent = _category(title, tags or [])
-    clean_title = re.sub(r"\s*#\w+\s*$", "", title).strip()
+    # blurred cover-fill background: scale up to cover the full canvas, crop
+    # to size, blur, then darken so the sharp foreground reads clearly.
+    scale = max(IG_W / sw, IG_H / sh)
+    bg = src.resize((round(sw * scale), round(sh * scale)))
+    bx, by = (bg.width - IG_W) // 2, (bg.height - IG_H) // 2
+    bg = bg.crop((bx, by, bx + IG_W, by + IG_H)).filter(ImageFilter.GaussianBlur(32))
+    bg = Image.eval(bg, lambda p: int(p * 0.5))
 
-    frame = workdir / "_ig_cover_frame.jpg"
-    _extract_cover_frame(video_path, frame)
-    bg = Image.open(frame).convert("RGB")
-    if bg.size != (IG_W, IG_H):
-        bg = bg.resize((IG_W, IG_H))
-
-    # dark grade from the lower third up, so white title text stays legible
-    ov = Image.new("RGBA", (IG_W, IG_H), (0, 0, 0, 40))
-    od = ImageDraw.Draw(ov)
-    for y in range(IG_H):
-        a = int(235 * (max(0, y - IG_H * 0.5) / (IG_H * 0.5)) ** 1.4)
-        od.line([(0, y), (IG_W, y)], fill=(0, 0, 0, min(a, 235)))
-    bg = Image.alpha_composite(bg.convert("RGBA"), ov).convert("RGB")
-    draw = ImageDraw.Draw(bg)
-
-    draw.rectangle([0, 0, IG_W, 14], fill=accent)
-
-    bf = _font(40)
-    bw = draw.textlength(badge_text, font=bf)
-    draw.rectangle([50, 70, 50 + bw + 44, 70 + 62], fill=accent)
-    draw.text((72, 82), badge_text, font=bf, fill=(15, 18, 26))
-
-    size = 96
-    font = _font(size)
-    max_w = IG_W - 120
-    lines = _wrap(draw, clean_title, font, max_w)
-    while len(lines) > 4 and size > 50:
-        size -= 8
-        font = _font(size)
-        lines = _wrap(draw, clean_title, font, max_w)
-
-    lh = int(size * 1.15)
-    y = IG_H - 220 - lh * len(lines)
-    for line in lines:
-        for dx in range(-4, 5, 2):
-            for dy in range(-4, 5, 2):
-                draw.text((60 + dx, y + dy), line, font=font, fill=(0, 0, 0))
-        draw.text((60, y), line, font=font, fill=(255, 255, 255))
-        y += lh
-
-    if channel:
-        cf = _font(30)
-        draw.text((60, IG_H - 130), channel.upper(), font=cf, fill=(255, 255, 255))
+    # sharp foreground: fit-within (no cropping, so the badge/title survive
+    # intact), centered vertically.
+    fw = IG_W
+    fh = round(sh * (IG_W / sw))
+    fg = src.resize((fw, fh))
+    bg.paste(fg, (0, (IG_H - fh) // 2))
 
     bg.save(out_jpg, quality=92)
-    frame.unlink(missing_ok=True)
     return out_jpg
 
 
@@ -265,8 +233,8 @@ def _upload_to_release(files: list[Path], slug: str) -> dict[str, str]:
     return {f.name: f"https://github.com/{repo}/releases/download/{tag}/{f.name}" for f in files}
 
 
-def stage_glimpse(video_path: Path, slug: str, title: str, channel: str,
-                  tags: list[str] | None, cfg: dict) -> dict | None:
+def stage_glimpse(video_path: Path, slug: str, thumb_png: Path | None,
+                  cfg: dict) -> dict | None:
     """Build + host the glimpse clip and its cover image. Never raises - a
     broken Instagram step must never take down a YouTube publish. Returns
     {"video_url": ..., "cover_url": ...}, or None."""
@@ -274,13 +242,22 @@ def stage_glimpse(video_path: Path, slug: str, title: str, channel: str,
         tmp_dir = ROOT / "build" / "_ig_tmp"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         clip_path = tmp_dir / f"{slug}-glimpse.mp4"
-        cover_path = tmp_dir / f"{slug}-cover.jpg"
         build_glimpse_clip(video_path, clip_path, cfg)
-        build_cover_image(video_path, title, channel, tags, tmp_dir, cover_path)
-        urls = _upload_to_release([clip_path, cover_path], slug)
+        files = [clip_path]
+
+        cover_path = None
+        if thumb_png and thumb_png.exists():
+            cover_path = tmp_dir / f"{slug}-cover.jpg"
+            build_cover_image(thumb_png, cover_path)
+            files.append(cover_path)
+
+        urls = _upload_to_release(files, slug)
+        result = {"video_url": urls[clip_path.name]}
         clip_path.unlink(missing_ok=True)
-        cover_path.unlink(missing_ok=True)
-        return {"video_url": urls[clip_path.name], "cover_url": urls[cover_path.name]}
+        if cover_path:
+            result["cover_url"] = urls[cover_path.name]
+            cover_path.unlink(missing_ok=True)
+        return result
     except Exception as e:  # noqa: BLE001
         print(f"[instagram] glimpse staging failed for {slug}: {e}")
         return None
