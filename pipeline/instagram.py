@@ -210,17 +210,22 @@ def build_cover_image(thumb_png: Path, out_jpg: Path) -> Path:
     thumbnail is landscape (1280x720); this letterbox-fits it onto the 9:16
     canvas with a blurred, darkened copy of itself filling the rest, instead
     of a hard crop that would cut off the badge/title."""
-    from PIL import Image, ImageFilter
+    from PIL import Image
 
     src = Image.open(thumb_png).convert("RGB")
     sw, sh = src.size
 
-    # blurred cover-fill background: scale up to cover the full canvas, crop
-    # to size, blur, then darken so the sharp foreground reads clearly.
+    # blurred cover-fill background: shrinking to a tiny size and blowing it
+    # back up is a cheap, reliable blur with none of the blocky/grid-like
+    # artifacts a real Gaussian blur left behind on a starfield background
+    # (fine bright points against near-black amplify JPEG block artifacts
+    # under a large-radius blur). A tiny source has no fine detail left to
+    # produce that pattern once upscaled.
     scale = max(IG_W / sw, IG_H / sh)
-    bg = src.resize((round(sw * scale), round(sh * scale)))
+    tiny = src.resize((max(1, round(sw * scale / 40)), max(1, round(sh * scale / 40))))
+    bg = tiny.resize((round(sw * scale), round(sh * scale)), Image.BILINEAR)
     bx, by = (bg.width - IG_W) // 2, (bg.height - IG_H) // 2
-    bg = bg.crop((bx, by, bx + IG_W, by + IG_H)).filter(ImageFilter.GaussianBlur(32))
+    bg = bg.crop((bx, by, bx + IG_W, by + IG_H))
     bg = Image.eval(bg, lambda p: int(p * 0.5))
 
     # sharp foreground: fit-within (no cropping, so the badge/title survive
