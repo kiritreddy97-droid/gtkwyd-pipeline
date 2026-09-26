@@ -285,14 +285,16 @@ def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str
     if cover_url:
         data["cover_url"] = cover_url
     r = requests.post(f"{GRAPH}/{uid}/media", data=data, timeout=30)
-    r.raise_for_status()
+    if not r.ok:
+        raise PipelineError(f"Instagram container create failed ({r.status_code}): {r.text}")
     creation_id = r.json()["id"]
 
     for _ in range(30):
         time.sleep(10)
         s = requests.get(f"{GRAPH}/{creation_id}",
                          params={"fields": "status_code", "access_token": token}, timeout=15)
-        s.raise_for_status()
+        if not s.ok:
+            raise PipelineError(f"Instagram status check failed ({s.status_code}): {s.text}")
         status = s.json().get("status_code")
         if status == "FINISHED":
             break
@@ -303,7 +305,8 @@ def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> str
 
     p = requests.post(f"{GRAPH}/{uid}/media_publish",
                       data={"creation_id": creation_id, "access_token": token}, timeout=30)
-    p.raise_for_status()
+    if not p.ok:
+        raise PipelineError(f"Instagram publish failed ({p.status_code}): {p.text}")
     return p.json()["id"]
 
 
