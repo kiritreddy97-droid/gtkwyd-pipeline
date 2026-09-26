@@ -123,8 +123,50 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
     text_file.unlink(missing_ok=True)
 
 
+XFADE = 0.4  # seconds - overlap at each cut between hook/highlight/outro
+
+
+def _crossfade_concat(parts: list[Path], out_path: Path) -> None:
+    """Join clips with a short audio+video crossfade at each cut instead of
+    a hard splice. The hook and highlight come from two different moments
+    in the original video, each carrying whatever background music was
+    already mixed in AT that point - a hard cut between them can jump
+    between different musical moments and read as a jarring, out-of-sync
+    edit. A crossfade doesn't change which music plays, it just blends the
+    seam instead of cutting it."""
+    durations = [ffprobe_duration(p) for p in parts]
+    if len(parts) == 1:
+        run([FFMPEG, "-y", "-i", parts[0], "-c", "copy", out_path])
+        return
+
+    inputs = []
+    for p in parts:
+        inputs += ["-i", str(p)]
+
+    filter_chain = []
+    cur_v, cur_a = "0:v", "0:a"
+    cum_dur = durations[0]
+    n = len(parts)
+    for i in range(1, n):
+        offset = max(0.0, cum_dur - XFADE)
+        out_v = f"v{i}" if i < n - 1 else "vout"
+        out_a = f"a{i}" if i < n - 1 else "aout"
+        filter_chain.append(
+            f"[{cur_v}][{i}:v]xfade=transition=fade:duration={XFADE}:"
+            f"offset={offset:.3f}[{out_v}]")
+        filter_chain.append(f"[{cur_a}][{i}:a]acrossfade=d={XFADE}[{out_a}]")
+        cur_v, cur_a = out_v, out_a
+        cum_dur = offset + durations[i]
+
+    run([FFMPEG, "-y", *inputs, "-filter_complex", ";".join(filter_chain),
+         "-map", "[vout]", "-map", "[aout]",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", out_path])
+
+
 def build_glimpse_clip(video_path: Path, out_path: Path, cfg: dict) -> Path:
-    """hook (~8s) + one later highlight (~8s) + spoken CTA outro (~5s)."""
+    """hook (~8s) + one later highlight (~8s) + spoken CTA outro (~5s),
+    crossfaded together rather than hard-cut."""
     check_ffmpeg()
     tmp = out_path.parent
     tmp.mkdir(parents=True, exist_ok=True)
@@ -140,29 +182,16 @@ def build_glimpse_clip(video_path: Path, out_path: Path, cfg: dict) -> Path:
 
     hi_start = _pick_highlight_start(duration)
     hi_dur = min(HIGHLIGHT_SECONDS, max(0.0, duration - hi_start))
-    if hi_dur >= 2.0:
+    if hi_dur >= 2.0 + XFADE:
         _extract_segment(video_path, hi_start, hi_dur, highlight)
         parts.append(highlight)
 
     _build_cta_clip(cfg, cta)
     parts.append(cta)
 
-    concat_list = tmp / f"{stem}_concat.txt"
-    concat_list.write_text(
-        "".join(f"file '{p.resolve().as_posix()}'\n" for p in parts), encoding="utf-8")
-    # Re-encode here rather than -c copy: the CTA segment's audio comes from a
-    # completely separate pipeline (fresh Piper TTS -> AAC) than the hook/
-    # highlight segments (extracted from the fully mixed/mastered original
-    # video), and stream-copying segments whose AAC frame boundaries don't
-    # line up produces exactly the stuttering/repeated-syllable glitch
-    # reported at the join into the outro ("for fo for fo... more co
-    # cococococ"). Re-encoding rebuilds a clean, consistent audio stream
-    # across the join instead of splicing incompatible frame boundaries.
-    run([FFMPEG, "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
-         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-         "-c:a", "aac", "-b:a", "160k", "-ar", "48000", out_path])
+    _crossfade_concat(parts, out_path)
 
-    for p in [*parts, concat_list]:
+    for p in parts:
         p.unlink(missing_ok=True)
     return out_path
 
