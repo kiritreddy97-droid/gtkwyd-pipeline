@@ -254,7 +254,11 @@ def _repo_slug() -> str:
 
 
 def _upload_to_release(files: list[Path], slug: str) -> dict[str, str]:
-    tag = f"ig-{slug}"
+    # A time suffix keeps every call's tag unique - staging can succeed while
+    # the actual post call fails afterward (network error, bad token), and a
+    # retry must never collide with the release the first attempt already
+    # created, or "gh release create" hard-fails forever on "tag exists".
+    tag = f"ig-{slug}-{int(time.time())}"
     proc = subprocess.run(
         ["gh", "release", "create", tag, *[str(f) for f in files],
          "--title", f"Instagram glimpse: {slug}",

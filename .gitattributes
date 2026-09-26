@@ -1,0 +1,10 @@
+# history.jsonl and topics_used.txt are append-only logs written by several
+# independent GitHub Actions workflows (publish, instagram, story, reels,
+# fact-image). A plain 3-way merge/rebase can produce an unresolvable
+# conflict when two workflows append at nearly the same time, even though
+# there's nothing to actually resolve - both sides just added new lines.
+# merge=union tells git to keep every appended line from both sides instead
+# of conflict-marking, which is exactly correct for line-independent logs
+# like these (each line/JSON record stands alone).
+history.jsonl merge=union
+topics_used.txt merge=union

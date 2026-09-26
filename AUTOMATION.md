@@ -108,28 +108,48 @@ to plain feed `VIDEO` only when Instagram rejects it specifically for length
 Scheduled by `.github/workflows/story.yml` (~5:43pm Mountain, weekdays). Needs
 the same `IG_USER_ID`/`IG_ACCESS_TOKEN` secrets as the regular glimpse posts.
 
-## Instagram satisfying / soothing / fitness-tip Reels (`reels.py`)
+## Instagram satisfying / soothing / fitness-wellness Reels (`reels.py`)
 
-A second, separate Instagram-only daily post, alongside the storytelling
-Reel. `reels.py` rotates through three categories - satisfying, soothing,
-fitness tips - one per day, based on how many `format: "reel"` entries already
-exist in `history.jsonl` (a render failure retries the same category next
-time instead of skipping it). Each category has its own theme queue
-(`topics-satisfying.txt` / `topics-soothing.txt` / `topics-fitness.txt`) and
-its own AI-writer system prompt (`pipeline.writer.generate_reel_script`,
-`kind="reel"` in guardrails) - narrated like the rest of the channel (not
-wordless ASMR), ~30-40s, same portrait render + Instagram posting path as
-`story.py` (`pipeline.instagram.publish_reel`). Fitness scripts are
-guardrail-blocked from diet/weight-loss/supplement content by design - only
-movement/form tips.
+Three more separate Instagram-only daily posts, alongside the storytelling
+Reel - satisfying, soothing, and fitness/wellness/nutrition each post **once
+a day on their own schedule slot** (not a rotation - each category is its own
+cron entry in `reels.yml`, calling `reels.py --category <name>`). A render
+failure just retries that same category's slot next time. Each category has
+its own theme queue (`topics-satisfying.txt` / `topics-soothing.txt` /
+`topics-fitness.txt`) and its own AI-writer system prompt
+(`pipeline.writer.generate_reel_script`, `kind="reel"` in guardrails) -
+narrated like the rest of the channel (not wordless ASMR), ~30-40s, same
+portrait render + Instagram posting path as `story.py`
+(`pipeline.instagram.publish_reel`). Fitness/wellness content is
+guardrail-blocked from diet-plan/weight-loss/supplement claims by design -
+movement, recovery, and nutrition *facts* only, never a prescription.
 
 ```powershell
-.\.venv\Scripts\python.exe reels.py                # generate, render, post
-.\.venv\Scripts\python.exe reels.py --dry-run      # render only
-.\.venv\Scripts\python.exe reels.py --status       # rotation + history
+.\.venv\Scripts\python.exe reels.py --category satisfying         # one Reel, posted
+.\.venv\Scripts\python.exe reels.py --category soothing --dry-run # render only
+.\.venv\Scripts\python.exe reels.py --status                      # queues + history
 ```
 
-Scheduled by `.github/workflows/reels.yml` (~12:17pm Mountain, weekdays).
+Scheduled by `.github/workflows/reels.yml`: satisfying ~12:17pm, soothing
+~1:26pm, fitness ~4:47pm Mountain, weekdays.
+
+## Instagram mind-blowing fact-image posts (`fact_post.py`)
+
+A sixth daily Instagram post - a single static feed **image**, not a Reel.
+Pulls the hook line from the most recently uploaded YouTube video/Short
+(`auto.py` records it into that history.jsonl entry's `"hook"` field),
+builds a bold branded "MIND-BLOWING FACT" card (`pipeline/fact_card.py` -
+PIL only, no stock footage/rendering pipeline), and posts it via
+`pipeline.instagram.post_image`/`publish_fact_image` with a caption + comment
+linking the full video. Meant to drive shares/engagement back to YouTube.
+
+```powershell
+.\.venv\Scripts\python.exe fact_post.py             # build, post
+.\.venv\Scripts\python.exe fact_post.py --dry-run   # build only
+```
+
+Scheduled by `.github/workflows/fact-image.yml` (~10:52am Mountain,
+weekdays) - much lighter than the others (no ffmpeg/Piper/Whisper/Ollama).
 
 ## Monitoring
 

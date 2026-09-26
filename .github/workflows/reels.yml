@@ -9,7 +9,7 @@ on:
   schedule:
     - cron: "17 18 * * 1-5"    # satisfying (~12:17pm Mountain)
     - cron: "26 19 * * 1-5"    # soothing   (~1:26pm Mountain)
-    - cron: "38 22 * * 1-5"    # fitness    (~4:38pm Mountain)
+    - cron: "47 22 * * 1-5"    # fitness    (~4:47pm Mountain)
   workflow_dispatch:
     inputs:
       category:
@@ -117,7 +117,7 @@ jobs:
             case "${{ github.event.schedule }}" in
               "17 18 * * 1-5")  echo "name=satisfying"; echo "category=satisfying" ;;
               "26 19 * * 1-5")  echo "name=soothing";   echo "category=soothing" ;;
-              "38 22 * * 1-5")  echo "name=fitness";    echo "category=fitness" ;;
+              "47 22 * * 1-5")  echo "name=fitness";    echo "category=fitness" ;;
               *)
                 echo "::warning::unrecognised schedule '${{ github.event.schedule }}' - falling back"
                 echo "name=schedule-fallback"; echo "category=satisfying" ;;
