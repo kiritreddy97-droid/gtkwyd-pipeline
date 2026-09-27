@@ -112,10 +112,15 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
           f"fontcolor=white:fontsize=64:"
           f"line_spacing=18:x=(w-text_w)/2:y=(h-text_h)/2:"
           f"box=1:boxcolor=black@0.45:boxborderw=30")
+    # explicit -r 30: the lavfi "color" source doesn't default to the same
+    # framerate as _extract_segment's "-r 30" hook/highlight clips, and
+    # xfade hard-fails ("timebase ... do not match") the moment it hits a
+    # cut between two mismatched framerates - caught via a real batch repost
+    # where every single crossfade failed at the hook/highlight -> CTA cut.
     run([FFMPEG, "-y",
          "-f", "lavfi", "-i", f"color=c=0x0E1116:s={IG_W}x{IG_H}:d={duration:.2f}",
          "-i", wav,
-         "-vf", vf,
+         "-vf", vf, "-r", "30",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
          "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
          "-shortest", out])
