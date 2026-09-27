@@ -29,6 +29,7 @@ story.lock
 reels.log
 reels.lock
 fact_post.log
+.fallback_scheduler_state.json
 
 # scratch files
 scratch_*.py
