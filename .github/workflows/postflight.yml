@@ -1,4 +1,6 @@
 name: postflight
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule -
+# scheduled runs across this repo went completely silent for 32+ hours)
 
 # Runs ~10 minutes after each real publish slot and confirms something with a
 # matching, recent, successful entry actually landed in history.jsonl -

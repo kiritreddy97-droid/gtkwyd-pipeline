@@ -1,4 +1,6 @@
 name: publish
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule -
+# scheduled runs across this repo went completely silent for 32+ hours)
 
 # Times below are UTC, converted from Mountain Time (currently MDT, UTC-6).
 # 2 videos/day (~9:00am / ~3:00pm local) + 4 shorts/day (~8am / ~2pm / ~8pm /

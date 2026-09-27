@@ -1,4 +1,5 @@
 name: fact-image
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule)
 
 # One "mind-blowing fact" static image post per day to the Instagram feed
 # (not a Reel/video) - built from the most recently uploaded YouTube

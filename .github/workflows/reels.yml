@@ -1,4 +1,5 @@
 name: reels
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule)
 
 # Three separate daily Instagram-only Reels - satisfying, soothing, and
 # fitness/wellness/nutrition - each on its own schedule slot (not a

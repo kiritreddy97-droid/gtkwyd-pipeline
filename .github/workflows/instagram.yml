@@ -1,4 +1,6 @@
 name: instagram
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule -
+# scheduled runs across this repo went completely silent for 32+ hours)
 
 # Posts staged Instagram glimpse clips ~1h after the matching YouTube video
 # went up. Staging (building the clip + hosting it on a GitHub Release)

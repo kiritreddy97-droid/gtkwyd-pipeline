@@ -1,4 +1,6 @@
 name: preflight
+# (touched 2026-09-27 to force GitHub to re-register the cron schedule -
+# scheduled runs across this repo went completely silent for 32+ hours)
 
 # Runs 5 minutes before each real publish slot in publish.yml and checks the
 # things that actually tend to break silently: an expired YouTube token, a
