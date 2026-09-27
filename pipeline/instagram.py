@@ -74,11 +74,37 @@ def _extract_segment(src: Path, start: float, seconds: float, out: Path) -> None
          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", out])
 
 
-def _pick_highlight_start(duration: float) -> float:
-    """Somewhere in the back half of the video, away from the very end."""
+def _nearest_pause(video_path: Path, target: float, duration: float) -> float:
+    """Snap to the nearest natural pause (the inter-sentence silence the TTS
+    pipeline already inserts) close to target, so the highlight clip starts
+    at a clean sentence boundary instead of mid-word - a raw random
+    timestamp regularly spliced the tail of one sentence directly onto the
+    middle of an unrelated later one (caught via a real Whisper transcript
+    reading "...with simple start its life cycle again", two different
+    sentences jammed together). Falls back to target if nothing useful is
+    detected nearby (e.g. background music masks the gap)."""
+    try:
+        proc = subprocess.run(
+            [FFMPEG, "-i", str(video_path), "-af", "silencedetect=noise=-30dB:d=0.25",
+             "-f", "null", "-"],
+            capture_output=True, text=True, timeout=60)
+        starts = [float(m) for m in re.findall(r"silence_start:\s*([\d.]+)", proc.stderr)]
+        if starts:
+            best = min(starts, key=lambda s: abs(s - target))
+            if abs(best - target) <= duration * 0.15:
+                return best
+    except Exception:  # noqa: BLE001
+        pass
+    return target
+
+
+def _pick_highlight_start(video_path: Path, duration: float) -> float:
+    """Somewhere in the back half of the video, away from the very end,
+    snapped to the nearest natural pause between sentences."""
     lo = duration * 0.45
     hi = max(lo + 1.0, duration * 0.75)
-    return round(random.uniform(lo, hi), 2)
+    target = round(random.uniform(lo, hi), 2)
+    return round(_nearest_pause(video_path, target, duration), 2)
 
 
 def _build_cta_clip(cfg: dict, out: Path) -> None:
@@ -129,7 +155,16 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
     text_file.unlink(missing_ok=True)
 
 
-XFADE = 0.4  # seconds - overlap at each cut between hook/highlight/outro
+XFADE = 0.4  # seconds - visual overlap at each cut (video xfade only)
+AUDIO_XFADE = 0.12  # seconds - much shorter than the video overlap on purpose:
+# the hook/highlight/CTA clips each carry spoken narration, and acrossfade
+# genuinely mixes both waveforms together during the overlap window - two
+# different sentences audibly on top of each other for that whole window,
+# which reads as a stutter/garble rather than a smooth blend (reported as
+# an "errrrr" glitch right where the CTA's narration starts). A crossfade
+# that actually sounds clean on MUSIC sounds like a mumble on SPEECH, so
+# audio gets a much shorter overlap than video - just enough to avoid an
+# audible click at the cut, not so much that both voices are legible at once.
 
 
 def _crossfade_concat(parts: list[Path], out_path: Path) -> None:
@@ -160,12 +195,18 @@ def _crossfade_concat(parts: list[Path], out_path: Path) -> None:
         filter_chain.append(
             f"[{cur_v}][{i}:v]xfade=transition=fade:duration={XFADE}:"
             f"offset={offset:.3f}[{out_v}]")
-        filter_chain.append(f"[{cur_a}][{i}:a]acrossfade=d={XFADE}[{out_a}]")
+        # acrossfade has no offset param (unlike xfade) - it always trims
+        # AUDIO_XFADE seconds off the join point, so using a shorter value
+        # here than XFADE makes the combined audio track end up slightly
+        # longer than the video track (each cut "saves" XFADE-AUDIO_XFADE
+        # seconds of audio trim). -shortest below truncates that trailing
+        # sliver rather than let it freeze the last video frame.
+        filter_chain.append(f"[{cur_a}][{i}:a]acrossfade=d={AUDIO_XFADE}[{out_a}]")
         cur_v, cur_a = out_v, out_a
         cum_dur = offset + durations[i]
 
     run([FFMPEG, "-y", *inputs, "-filter_complex", ";".join(filter_chain),
-         "-map", "[vout]", "-map", "[aout]",
+         "-map", "[vout]", "-map", "[aout]", "-shortest",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", out_path])
 
@@ -183,11 +224,19 @@ def build_glimpse_clip(video_path: Path, out_path: Path, cfg: dict) -> Path:
     highlight = tmp / f"{stem}_highlight.mp4"
     cta = tmp / f"{stem}_cta.mp4"
 
-    _extract_segment(video_path, 0.0, min(HOOK_SECONDS, duration), hook)
+    # the hook's own end boundary needs the same pause-snap as the
+    # highlight's start - a fixed 8.0s cutoff cut off mid-sentence just as
+    # often as the highlight's old random start did.
+    hook_end = _nearest_pause(video_path, min(HOOK_SECONDS, duration), duration)
+    _extract_segment(video_path, 0.0, hook_end, hook)
     parts = [hook]
 
-    hi_start = _pick_highlight_start(duration)
-    hi_dur = min(HIGHLIGHT_SECONDS, max(0.0, duration - hi_start))
+    hi_start = _pick_highlight_start(video_path, duration)
+    # snap the highlight's END too, same reasoning as the hook's end above -
+    # a fixed-length window otherwise cuts off mid-word right before the CTA.
+    hi_end_target = min(hi_start + HIGHLIGHT_SECONDS, duration)
+    hi_end = _nearest_pause(video_path, hi_end_target, duration)
+    hi_dur = max(0.0, hi_end - hi_start)
     if hi_dur >= 2.0 + XFADE:
         _extract_segment(video_path, hi_start, hi_dur, highlight)
         parts.append(highlight)
@@ -392,6 +441,48 @@ def post_comment(media_id: str, message: str) -> str:
     return r.json()["id"]
 
 
+def share_to_stories(media_url: str, is_video: bool) -> str:
+    """Cross-post the same Reel/image to Instagram Stories too, in addition
+    to the feed/Reels-tab post. Stories don't take a caption, and a real
+    tappable link sticker isn't available through the basic Content
+    Publishing API - so this relies on the same "link in bio" text already
+    burned into the visual (every Reel/fact-image already carries that CTA
+    on-screen), it does not add a clickable link on top of it."""
+    uid, token = _ig_env()
+    if not uid or not token:
+        raise PipelineError("IG_USER_ID / IG_ACCESS_TOKEN not set - see INSTAGRAM_SETUP.md")
+    data = {"media_type": "STORIES", "access_token": token}
+    data["video_url" if is_video else "image_url"] = media_url
+    r = requests.post(f"{GRAPH}/{uid}/media", data=data, timeout=30)
+    if not r.ok:
+        raise PipelineError(f"Instagram story container create failed ({r.status_code}): {r.text}")
+    creation_id = r.json()["id"]
+
+    attempts = 30 if is_video else 6
+    for _ in range(attempts):
+        if is_video:
+            time.sleep(10)
+        s = requests.get(f"{GRAPH}/{creation_id}",
+                         params={"fields": "status_code", "access_token": token}, timeout=15)
+        if not s.ok:
+            raise PipelineError(f"Instagram story status check failed ({s.status_code}): {s.text}")
+        status = s.json().get("status_code")
+        if status in ("FINISHED", None):
+            break
+        if status == "ERROR":
+            raise PipelineError(f"Instagram failed to process the story: {s.json()}")
+        if not is_video:
+            time.sleep(3)
+    else:
+        raise PipelineError("Instagram story processing timed out")
+
+    p = requests.post(f"{GRAPH}/{uid}/media_publish",
+                      data={"creation_id": creation_id, "access_token": token}, timeout=30)
+    if not p.ok:
+        raise PipelineError(f"Instagram story publish failed ({p.status_code}): {p.text}")
+    return p.json()["id"]
+
+
 def _publish_full_video(video_path: Path, slug: str, caption: str,
                         thumb_png: Path | None, cfg: dict, tag_prefix: str) -> dict | None:
     """Host + post a full pre-rendered vertical video in one shot. Unlike
@@ -442,6 +533,14 @@ def _publish_full_video(video_path: Path, slug: str, caption: str,
             result["instagram_commented"] = True
         except Exception as e:  # noqa: BLE001
             print(f"[instagram] posted {slug} but comment failed: {e}")
+
+    # best-effort: a failed Stories cross-post must never undo a successful
+    # feed/Reels-tab post.
+    try:
+        story_id = share_to_stories(video_url, is_video=True)
+        result["instagram_story_media_id"] = story_id
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] posted {slug} but Stories cross-post failed: {e}")
     return result
 
 
@@ -540,6 +639,12 @@ def publish_fact_image(image_path: Path, slug: str, caption: str, cfg: dict) -> 
             result["instagram_commented"] = True
         except Exception as e:  # noqa: BLE001
             print(f"[instagram] posted fact image {slug} but comment failed: {e}")
+
+    try:
+        story_id = share_to_stories(image_url, is_video=False)
+        result["instagram_story_media_id"] = story_id
+    except Exception as e:  # noqa: BLE001
+        print(f"[instagram] posted fact image {slug} but Stories cross-post failed: {e}")
     return result
 
 
@@ -610,6 +715,14 @@ def run_post_due() -> int:
                 e["instagram_commented"] = True
             except Exception as ex:  # noqa: BLE001
                 print(f"[instagram] posted {e.get('slug')} but comment failed: {ex}")
+
+        # Best-effort: a failed Stories cross-post must never undo a
+        # successful feed/Reels-tab post.
+        try:
+            story_id = share_to_stories(e["instagram_glimpse_url"], is_video=True)
+            e["instagram_story_media_id"] = story_id
+        except Exception as ex:  # noqa: BLE001
+            print(f"[instagram] posted {e.get('slug')} but Stories cross-post failed: {ex}")
 
     if changed:
         out = "\n".join(json.dumps(e, ensure_ascii=False) if e else "" for e in entries)

@@ -26,13 +26,15 @@ import re
 from pathlib import Path
 
 def _kw(*terms: str) -> str:
-    """Build a word-boundary pattern where a single-word term also matches
-    its plain plural (bone -> bones, organ -> organs) - a bare \\bword\\b does
-    NOT match the plural, since there's no boundary between the word and a
-    trailing 's'. Deliberately just `s?`, not `\\w*` - the latter would also
-    match unrelated words sharing a prefix (war -> warm, warning; star ->
-    start, starting)."""
-    parts = [re.escape(t) if " " in t else re.escape(t) + "s?" for t in terms]
+    """Build a word-boundary pattern where a term also matches its plain
+    plural (bone -> bones, black hole -> black holes) - a bare \\bword\\b
+    does NOT match the plural, since there's no boundary between the word
+    and a trailing 's'. Deliberately just `s?`, not `\\w*` - the latter would
+    also match unrelated words sharing a prefix (war -> warm, warning; star
+    -> start, starting). Applied to multi-word phrases too (real titles say
+    "Black Holes", not "Black Hole") - `s?` only ever extends the LAST word
+    of the phrase, so this can't misfire onto some unrelated later word."""
+    parts = [re.escape(t) + "s?" for t in terms]
     return r"\b(?:" + "|".join(parts) + r")\b"
 
 
@@ -44,9 +46,10 @@ _TOPIC_MOOD = [
         "computer", "chip", "gadget", "wireless", "charging", "phone", "screen",
         "app", "software", "drone", "satellite"),
      ("energetic", "upbeat")),
-    (_kw("space", "planet", "moon", "mars", "star", "galaxy", "cosmos", "nasa",
-        "orbit", "solar", "astronaut", "black hole", "comet", "asteroid",
-        "voyager", "interstellar"),
+    (_kw("space", "planet", "moon", "mars", "jupiter", "saturn", "venus",
+        "mercury", "pluto", "uranus", "neptune", "star", "galaxy", "cosmos",
+        "nasa", "orbit", "solar", "astronaut", "black hole", "comet",
+        "asteroid", "voyager", "interstellar", "aurora", "northern light"),
      ("cosmic",)),
     (_kw("history", "ancient", "roman", "empire", "century", "centuries",
         "archaeolog", "lost", "civilisation", "civilization", "war", "egypt",
@@ -63,10 +66,16 @@ _TOPIC_MOOD = [
         "breath", "fingerprint", "skin", "organ"),
      ("warm", "calm")),
     (_kw("animal", "insect", "bird", "bee", "ant", "crow", "elephant", "shark",
-        "octopus", "dinosaur", "species", "creature"),
+        "octopus", "dinosaur", "species", "creature", "jellyfish", "whale",
+        "dolphin", "fish", "coral", "frog", "reptile", "snake",
+        "lizard", "turtle", "spider", "butterfly", "hummingbird", "mantis",
+        "shrimp", "crab", "penguin", "bat", "wolf", "bear", "cat", "dog",
+        "axolotl", "mantis shrimp"),
      ("warm", "playful")),
     (_kw("ocean", "glacier", "volcano", "earthquake", "desert", "mountain",
-        "weather", "storm", "climate", "geology", "planet earth"),
+        "everest", "cave", "antarctica", "arctic", "weather", "storm",
+        "climate", "geology", "planet earth", "sea", "underwater",
+        "deep sea", "reef", "tide", "wave"),
      ("calm", "dramatic")),
     (_kw("math", "number", "pattern", "physics", "engineering", "traffic",
         "bridge", "machine", "mechanism", "formula", "equation"),
@@ -275,11 +284,17 @@ def target_mood(title: str, tags: list[str] | None = None) -> str:
 
 
 def pick(pool: list[Path], title: str, tags: list[str] | None = None) -> Path | None:
+    """Only ever returns a track when it's an actual mood match for the
+    topic - never a blind random pick. A video whose topic isn't recognised,
+    or whose recognised mood has no matching track in the library, gets no
+    background music at all rather than risking a mismatched track (this
+    is how a jellyfish video ended up with an upbeat/energetic track: the
+    old fallback was `random.choice(pool)` over the WHOLE library the
+    moment nothing matched)."""
     if not pool:
         return None
     moods = target_moods(title, tags)
-    if moods:
-        matched = [p for p in pool if set(track_moods(p.stem)) & set(moods)]
-        if matched:
-            return random.choice(matched)
-    return random.choice(pool)
+    if not moods:
+        return None
+    matched = [p for p in pool if set(track_moods(p.stem)) & set(moods)]
+    return random.choice(matched) if matched else None
