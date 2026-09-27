@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 from pipeline import ideas, qa_gate, qa_queue
@@ -95,7 +96,10 @@ def _generate_and_render(model: str | None, acfg: dict, slot: str) -> dict | Non
 
     from pipeline.script_parser import parse_script_text
     script = parse_script_text(md, fallback_title=theme)
-    slug = slugify(script.title)[:60]
+    # a short uniqueness suffix - see reels.py's identical fix for why: two
+    # runs close together can land on the same slug for a similar/identical
+    # title, and git can't auto-merge two different NEW files at one path.
+    slug = slugify(script.title)[:50] + "-" + uuid.uuid4().hex[:6]
     script_path = GEN_DIR / f"{slug}.md"
     script_path.write_text(md, encoding="utf-8")
 

@@ -28,6 +28,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 from pipeline import ideas, qa_gate, qa_queue
@@ -117,7 +118,13 @@ def _generate_and_render(category: str, topics_path: Path, model: str | None,
 
     from pipeline.script_parser import parse_script_text
     script = parse_script_text(md, fallback_title=theme)
-    slug = slugify(f"{category}-{script.title}")[:60]
+    # a short uniqueness suffix - two runs close together (e.g. a manual
+    # trigger overlapping the scheduled one) can otherwise land on the exact
+    # same slug for a similar/identical title, and git can't auto-merge two
+    # genuinely different NEW files claiming the same path (unlike the
+    # append-only logs, which merge=union already covers) - caught via a
+    # real add/add conflict between two near-simultaneous test runs.
+    slug = slugify(f"{category}-{script.title}")[:50] + "-" + uuid.uuid4().hex[:6]
     script_path = GEN_DIR / f"{slug}.md"
     script_path.write_text(md, encoding="utf-8")
 
