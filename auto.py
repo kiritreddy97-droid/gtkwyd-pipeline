@@ -240,8 +240,9 @@ def run(slot: str, fmt: str, source: str, dry_run: bool) -> int:
     # slow/broken Instagram step can never block or delay the YouTube upload.
     if fmt == "video" and acfg.get("instagram_glimpse", True):
         from pipeline import instagram
+        narration = " ".join(sc.narration for sc in script.scenes)
         staged = instagram.stage_glimpse(
-            video, slug, thumb if thumb.exists() else None, cfg)
+            video, slug, thumb if thumb.exists() else None, cfg, narration_text=narration)
         if staged:
             entry["instagram_glimpse_url"] = staged["video_url"]
             if "cover_url" in staged:

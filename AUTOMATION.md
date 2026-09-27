@@ -151,6 +151,37 @@ linking the full video. Meant to drive shares/engagement back to YouTube.
 Scheduled by `.github/workflows/fact-image.yml` (~10:52am Mountain,
 weekdays) - much lighter than the others (no ffmpeg/Piper/Whisper/Ollama).
 
+## QA gatekeeper (`pipeline/qa_gate.py`, `pipeline/qa_queue.py`)
+
+Every Reel/story and fact-image is checked **before** it's staged/posted -
+not just for the six daily Instagram posts above, but the glimpse Reels cut
+from each full YouTube video too (`pipeline.instagram.stage_glimpse`).
+Checks:
+
+- **Reels/stories**: do the sampled frames plausibly relate to the spoken
+  narration, and is the cover thumbnail clean (not glitchy/garbled/blank)?
+- **Fact-image posts**: does it look like an intentionally designed graphic
+  (not broken/glitchy), and is the text legible and on-topic?
+
+A failure regenerates (a fresh script + render for story/reels/fact-image;
+a re-cut with a new random highlight for glimpses) up to 3 attempts. If it
+still hasn't passed after that: the slot is skipped for today (logged
+clearly in history.jsonl as `status: "qa_held"`) and the last attempt is
+held in `.qa_held_queue.json` (git-tracked, not gitignored) so the **next**
+scheduled run for that category tries it again first, instead of losing it
+- glimpses are the one exception, since they're tied to one specific
+  already-published video rather than a recurring daily slot, so a
+  repeated failure there just skips Instagram for that video.
+
+Needs `ANTHROPIC_API_KEY` (a GitHub Secret, same pattern as the other keys)
+to actually do anything - **without it, every check is skipped and logged,
+never a hard failure**, so the pipeline keeps working exactly as before
+until the key is added. Get a key at console.anthropic.com, then:
+
+```powershell
+gh secret set ANTHROPIC_API_KEY --body "sk-ant-..."
+```
+
 ## Monitoring
 
 ```powershell

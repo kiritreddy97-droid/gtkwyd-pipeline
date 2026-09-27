@@ -144,7 +144,14 @@ def main() -> int:
             continue
 
         try:
-            staged = instagram.stage_glimpse(video, slug, thumb if thumb.exists() else None, cfg)
+            from pipeline.script_parser import parse_script
+            narration = " ".join(sc.narration for sc in parse_script(script_path).scenes)
+        except Exception:  # noqa: BLE001
+            narration = ""
+
+        try:
+            staged = instagram.stage_glimpse(video, slug, thumb if thumb.exists() else None,
+                                             cfg, narration_text=narration)
         except Exception as e:  # noqa: BLE001
             log(f"FAIL {slug}: staging error: {e}")
             staged = None

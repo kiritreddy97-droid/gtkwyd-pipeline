@@ -181,6 +181,10 @@ jobs:
           # to host the clip at a public URL. Posting itself happens later,
           # in instagram.yml, and doesn't need this.
           GH_TOKEN: ${{ github.token }}
+          # QA gate (pipeline/qa_gate.py) checks the glimpse before it's
+          # staged. Without this secret set, the check is skipped (logged),
+          # not a hard failure.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           python auto.py --slot "${{ steps.slot.outputs.name }}" \
                          --format "${{ steps.slot.outputs.format }}" \

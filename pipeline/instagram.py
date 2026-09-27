@@ -327,23 +327,56 @@ def _upload_to_release(files: list[Path], slug: str) -> dict[str, str]:
 
 
 def stage_glimpse(video_path: Path, slug: str, thumb_png: Path | None,
-                  cfg: dict) -> dict | None:
+                  cfg: dict, narration_text: str = "") -> dict | None:
     """Build + host the glimpse clip and its cover image. Never raises - a
     broken Instagram step must never take down a YouTube publish. Returns
-    {"video_url": ..., "cover_url": ...}, or None."""
-    try:
-        tmp_dir = ROOT / "build" / "_ig_tmp"
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        clip_path = tmp_dir / f"{slug}-glimpse.mp4"
-        build_glimpse_clip(video_path, clip_path, cfg)
-        files = [clip_path]
+    {"video_url": ..., "cover_url": ...}, or None.
 
-        cover_path = None
-        if thumb_png and thumb_png.exists():
+    QA gate: the built clip is checked (visuals relate to the narration,
+    cover looks clean) before it's ever uploaded. A failure rebuilds the
+    clip (which re-picks a random highlight cut) up to 3 attempts; if it
+    still doesn't pass, staging is skipped entirely for this video - there's
+    no "next slot" to hold it for here, this is tied to one specific
+    already-published YouTube video, not a recurring daily category."""
+    from . import qa_gate
+
+    cover_path = None
+    tmp_dir = ROOT / "build" / "_ig_tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    clip_path = tmp_dir / f"{slug}-glimpse.mp4"
+
+    if thumb_png and thumb_png.exists():
+        try:
             cover_path = tmp_dir / f"{slug}-cover.jpg"
             build_cover_image(thumb_png, cover_path)
-            files.append(cover_path)
+        except Exception as e:  # noqa: BLE001
+            print(f"[instagram] cover build failed for {slug}: {e}")
+            cover_path = None
 
+    passed = False
+    qa_issues: list[str] = []
+    for attempt in range(1, 4):
+        try:
+            build_glimpse_clip(video_path, clip_path, cfg)
+        except Exception as e:  # noqa: BLE001
+            print(f"[instagram] glimpse build failed for {slug}: {e}")
+            return None
+        passed, qa_issues = qa_gate.check_reel(clip_path, cover_path, narration_text)
+        if passed:
+            break
+        print(f"[instagram] QA FAILED (attempt {attempt}/3) for {slug} glimpse: "
+             f"{' | '.join(qa_issues)}")
+
+    if not passed:
+        print(f"[instagram] {slug} glimpse failed QA after 3 attempts - skipping Instagram "
+             f"for this video: {' | '.join(qa_issues)}")
+        clip_path.unlink(missing_ok=True)
+        if cover_path:
+            cover_path.unlink(missing_ok=True)
+        return None
+
+    try:
+        files = [clip_path] + ([cover_path] if cover_path else [])
         urls = _upload_to_release(files, slug)
         result = {"video_url": urls[clip_path.name]}
         clip_path.unlink(missing_ok=True)
