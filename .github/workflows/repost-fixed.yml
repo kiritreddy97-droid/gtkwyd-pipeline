@@ -11,7 +11,16 @@ name: repost-fixed
 # timeout or interruption never loses work already posted - just re-run this
 # workflow again and it picks up wherever it left off.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "only repost this one slug (smoke test before the full batch)"
+        type: string
+        default: ""
+      limit:
+        description: "only repost the first N (0 = no limit)"
+        type: number
+        default: 0
 
 permissions:
   contents: write
@@ -96,7 +105,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-        run: python repost_fixed_reels.py
+        run: |
+          args=""
+          if [ -n "${{ inputs.only }}" ]; then args="$args --only ${{ inputs.only }}"; fi
+          if [ "${{ inputs.limit }}" != "0" ] && [ -n "${{ inputs.limit }}" ]; then args="$args --limit ${{ inputs.limit }}"; fi
+          python repost_fixed_reels.py $args
 
       - name: Upload log
         if: always()

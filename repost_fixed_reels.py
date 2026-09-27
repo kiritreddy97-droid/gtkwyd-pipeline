@@ -15,6 +15,7 @@ import json
 import shutil
 import subprocess
 import sys
+import argparse
 from pathlib import Path
 
 from pipeline.util import BUILD_DIR, ROOT, load_config, slugify
@@ -82,11 +83,23 @@ def _update_entry_by_slug(slug: str, updates: dict) -> None:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(prog="repost_fixed_reels")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="only process the first N targets - for a cheap smoke test "
+                         "before committing to the full batch")
+    ap.add_argument("--only", default=None,
+                    help="only process this one slug")
+    args = ap.parse_args()
+
     cfg = load_config()
     entries = _load_entries()
 
     targets = [e["slug"] for e in entries
               if e and e.get("instagram_posted") and not e.get("instagram_reposted_at")]
+    if args.only:
+        targets = [s for s in targets if s == args.only]
+    elif args.limit:
+        targets = targets[:args.limit]
     log(f"found {len(targets)} previously-posted entries needing a fresh repost")
 
     from pipeline import instagram
