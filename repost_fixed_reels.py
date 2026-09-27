@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from pipeline.util import BUILD_DIR, ROOT, load_config
+from pipeline.util import BUILD_DIR, ROOT, load_config, slugify
 
 HISTORY = ROOT / "history.jsonl"
 LOG = ROOT / "repost_fixed.log"
@@ -114,9 +114,17 @@ def main() -> int:
             failed += 1
             continue
 
-        outdir = BUILD_DIR / slug
-        video = outdir / f"{slug}.mp4"
-        thumb = outdir / f"{slug}_thumbnail.png"
+        # make_video.py slugifies its OWN script path's stem to name the
+        # output dir - for scripts/published/video-{slug}.md that stem is
+        # "video-{slug}", not the bare slug from history.jsonl. Using the
+        # bare slug here silently looked in the wrong directory and reported
+        # "no video produced" for a render that actually succeeded (caught
+        # this via a real CI run: all 17 "failed" with 2-3 real minutes of
+        # rendering each, then nothing was ever staged/posted).
+        render_slug = slugify(script_path.stem)
+        outdir = BUILD_DIR / render_slug
+        video = outdir / f"{render_slug}.mp4"
+        thumb = outdir / f"{render_slug}_thumbnail.png"
         if not video.exists():
             log(f"FAIL {slug}: no video produced")
             failed += 1
