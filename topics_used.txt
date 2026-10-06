@@ -73,3 +73,4 @@ how the QWERTY layout slowed typists on purpose
 the man who survived two atomic bombings
 the Voynich manuscript nobody can read
 how a compass works and why it is slowly wrong
+the AI that learned to play games with no rules given
