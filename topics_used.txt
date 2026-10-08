@@ -81,3 +81,4 @@ the first computer bug was a real moth
 how facial recognition actually maps a face
 a spool of thread being wound perfectly tight
 clouds drifting slowly across a calm sky
+the Turing test and what it does not prove
