@@ -1,0 +1,7 @@
+# AI scene illustrations (pipeline/illustrate.py). Installed only by telugu.yml,
+# CPU-only PyTorch first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+diffusers
+transformers
+accelerate
+safetensors

@@ -65,11 +65,14 @@ def generate(script, scene_starts: list[float], total: float, sources: set[str],
             "see the world.\n\nChapters:\n" + "\n".join(chapters)
         )
 
-    src_line = ", ".join(sorted(s.title() for s in sources if s != "solid")) or "n/a"
-    desc_parts.append(
-        f"Footage & images: {src_line} (royalty-free). "
-        f"Narration: {voice_credit}."
-    )
+    stock = sorted(s.title() for s in sources if s not in ("solid", "ai"))
+    parts = []
+    if "ai" in sources:
+        parts.append("AI-generated illustrations")
+    if stock:
+        parts.append(f"{', '.join(stock)} stock footage (royalty-free)")
+    src_line = " and ".join(parts) or "n/a"
+    desc_parts.append(f"Visuals: {src_line}. Narration: {voice_credit}.")
     description = "\n\n".join(desc_parts).strip()
 
     tags = list(dict.fromkeys([*script.tags, *(_TE_TAGS if lang == "te" else _DEFAULT_TAGS)]))

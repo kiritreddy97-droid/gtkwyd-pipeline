@@ -20,6 +20,7 @@ from pipeline.script_parser import parse_script
 from pipeline.util import (ASSETS_DIR, BUILD_DIR, PipelineError, check_ffmpeg,
                            dims, load_config, slugify)
 from pipeline.visuals import Asset, VisualFetcher
+from pipeline import illustrate, writer_te
 from pipeline.voices import (DEFAULT_VOICE, EDGE_PREFIX, ensure_voice, list_voices,
                              pick_voice)
 
@@ -29,6 +30,12 @@ OUTRO_SPOKEN = ("For more information and to stay updated, please like, "
 OUTRO_DISPLAY = "LIKE, SHARE & SUBSCRIBE for more like this"
 OUTRO_SPOKEN_TE = ("ఇలాంటి మరిన్ని చరిత్ర కథల కోసం, లైక్ చేయండి, షేర్ చేయండి, "
                    "మరియు సబ్‌స్క్రైబ్ చేయండి.")
+DEFAULT_TE_STYLE = (
+    "Narrate in natural, warm, conversational Telugu, like a gifted storyteller telling a "
+    "true story to family around a fire: expressive and human, never like reading a passage. "
+    "Vary the pace and pitch with the meaning: slow down and lower your voice at dramatic "
+    "or sad moments, speed up with excitement, rise on questions, add small natural pauses "
+    "and gentle emphasis on key words. Keep one consistent voice throughout.")
 OUTRO_DISPLAY_TE = "ఇలాంటి మరిన్ని కథల కోసం\nసబ్‌స్క్రైబ్ చేయండి"
 
 
@@ -131,9 +138,39 @@ def main() -> int:
                        noise_scale=noise_scale, noise_w=noise_w)
         return None
 
+    # Narrate everything up front so a voice problem is found before any video
+    # work and one video never mixes two voices. Telugu prefers Gemini's
+    # expressive voice (no word timings - estimated from the audio's pauses);
+    # if it fails for any segment the WHOLE video is redone with the Edge voice.
+    outro_spoken = OUTRO_SPOKEN if lang == "en" else OUTRO_SPOKEN_TE
+    outro_display = OUTRO_DISPLAY if lang == "en" else OUTRO_DISPLAY_TE
+    seg_texts = [sc.narration for sc in script.scenes] + [outro_spoken]
+    seg_wavs = [workdir / "narration" / f"scene_{i:02d}.wav" for i in range(len(seg_texts))]
+    seg_timings = None
+    used_gemini = False
+    tcfg = cfg.get("telugu", {})
+    if lang != "en" and tcfg.get("voice_engine", "edge") == "gemini" and writer_te.available():
+        gem_voice = tcfg.get("gemini_voice", "Charon")
+        gem_style = tcfg.get("gemini_style", DEFAULT_TE_STYLE)
+        try:
+            print(f"[voice]  Gemini expressive voice '{gem_voice}' for {len(seg_texts)} segments ...")
+            seg_timings = [tts.synthesize_gemini(t, w, gem_voice, gem_style)
+                           for t, w in zip(seg_texts, seg_wavs)]
+            used_gemini = True
+        except PipelineError as e:
+            print(f"[voice]  Gemini voice failed ({e}); using the Edge voice for the whole video")
+    if seg_timings is None:
+        seg_timings = [speak(t, w) for t, w in zip(seg_texts, seg_wavs)]
+
     fetcher = None
     if not args.no_stock:
         fetcher = VisualFetcher(cfg)
+
+    art_ok = illustrate.available(cfg)
+    art_model = tcfg.get("image_model", illustrate.DEFAULT_MODEL)
+    art_steps = int(tcfg.get("image_steps", 2))
+    if art_ok and any(sc.art for sc in script.scenes):
+        print(f"[art]    AI illustrations with {art_model} ({art_steps} steps)")
 
     print(f"[scenes] {len(script.scenes)}")
     scene_finals: list[Path] = []
@@ -146,19 +183,38 @@ def main() -> int:
 
     for i, scene in enumerate(script.scenes):
         print(f"  scene {i + 1}/{len(script.scenes)}: {scene.heading}")
-        wav = workdir / "narration" / f"scene_{i:02d}.wav"
-        timings = speak(scene.narration, wav)
+        wav = seg_wavs[i]
+        timings = seg_timings[i]
 
         slide_text = None
         assets: list[Asset] = []
         if args.no_stock:
             slide_text = scene.heading
         else:
-            for q in scene.queries:
-                print(f"      stock: {q}")
-                a = fetcher.fetch(q)
-                assets.append(a)
-                sources.add(a.source)
+            # AI illustrations first (they match the story); stock footage is the
+            # fallback for any scene where drawing isn't possible or fails.
+            if scene.art and art_ok:
+                made: list[Asset] = []
+                for j, prompt in enumerate(scene.art):
+                    print(f"      art: {prompt[:78]}")
+                    try:
+                        p = illustrate.generate(
+                            prompt, workdir / f"art_{i:02d}_{j}.jpg", portrait=(w < h),
+                            model=art_model, steps=art_steps, seed=1000 * i + j)
+                        made.append(Asset(p, "image", prompt, "ai"))
+                    except PipelineError as e:
+                        print(f"      art failed ({e}); using stock footage for this scene")
+                        made = []
+                        break
+                if made:
+                    assets = made
+                    sources.add("ai")
+            if not assets:
+                for q in scene.queries:
+                    print(f"      stock: {q}")
+                    a = fetcher.fetch(q)
+                    assets.append(a)
+                    sources.add(a.source)
             if assets and first_asset is None:
                 first_asset = assets[0]
 
@@ -175,10 +231,8 @@ def main() -> int:
     # narrated scene (captioned like the rest) rather than a bolted-on clip.
     cta_idx = len(script.scenes)
     print(f"  scene {cta_idx + 1}/{len(script.scenes) + 1}: outro (like/share/subscribe)")
-    cta_wav = workdir / "narration" / f"scene_{cta_idx:02d}.wav"
-    outro_spoken = OUTRO_SPOKEN if lang == "en" else OUTRO_SPOKEN_TE
-    outro_display = OUTRO_DISPLAY if lang == "en" else OUTRO_DISPLAY_TE
-    cta_timings = speak(outro_spoken, cta_wav)
+    cta_wav = seg_wavs[cta_idx]
+    cta_timings = seg_timings[cta_idx]
     cta_mp4, cta_dur = assemble.build_scene(
         cta_idx, cta_wav, [], cfg, workdir, slide_text=outro_display, lang=lang)
     scene_finals.append(cta_mp4)
@@ -234,7 +288,8 @@ def main() -> int:
     meta_txt = BUILD_DIR / slug / f"{slug}_metadata.txt"
     metadata.generate(script, scene_starts, total, sources, channel, meta_txt,
                       is_short=args.short, lang=lang,
-                      voice_credit=("Microsoft neural text-to-speech (Edge voices)"
+                      voice_credit=("Google Gemini text-to-speech" if used_gemini
+                                    else "Microsoft neural text-to-speech (Edge voices)"
                                     if use_edge else "Piper (open-source, offline)"))
 
     # captions.generate already writes {slug}.srt / {slug}.ass into workdir,
@@ -242,7 +297,7 @@ def main() -> int:
 
     # clean intermediates
     if not args.keep:
-        for pat in ("seg_*", "scene_*.mp4", "scene_*_v.mp4", "*_list.txt",
+        for pat in ("art_*.jpg", "seg_*", "scene_*.mp4", "scene_*_v.mp4", "*_list.txt",
                     "body.mp4", "slide_*.png", "_thumb_frame.jpg",
                     f"{slug}.ass", "*.ttf", "*.otf"):
             for f in workdir.glob(pat):

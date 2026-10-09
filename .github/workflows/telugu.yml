@@ -55,7 +55,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.go == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,6 +70,20 @@ jobs:
 
       - name: Install Python deps
         run: pip install -q -r requirements.txt
+
+      # AI illustrations: CPU PyTorch + diffusers, and the cached image model
+      # (~7 GB, downloaded once). Failure here only means stock-footage fallback.
+      - name: Install image-generation libraries (CPU)
+        continue-on-error: true
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q -r requirements-ai.txt
+
+      - name: Cache the image model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-image-model-sdxl-turbo
 
       - name: Cache music library
         id: cache-music

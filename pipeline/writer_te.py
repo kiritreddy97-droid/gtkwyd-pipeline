@@ -196,8 +196,9 @@ _SCENE = {
         "heading": {"type": "STRING"},
         "narration": {"type": "STRING"},
         "queries": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "image_prompts": {"type": "ARRAY", "items": {"type": "STRING"}},
     },
-    "required": ["heading", "narration", "queries"],
+    "required": ["heading", "narration", "queries", "image_prompts"],
 }
 _SCRIPT_SCHEMA = {
     "type": "OBJECT",
@@ -259,6 +260,13 @@ LANGUAGE RULES:
   (for example "ancient stone fort walls", "old map on parchment", "sunrise
   over temple ruins", "horse cavalry silhouette"). Nothing modern (no cars,
   phones, city traffic), no named people, no text.
+- Each scene's "image_prompts" are 2 detailed ENGLISH descriptions of the
+  scene as a painting, for an AI illustrator: the setting, the people (generic
+  period figures, never named individuals' faces), what they are doing, the
+  period clothing, architecture and weapons, the light and mood. Historically
+  plausible for the exact place and era; no modern objects; no text or writing;
+  wide cinematic composition with the subject near the centre. The two prompts
+  of a scene show two different moments or angles of it.
 - "tags": 8-12 items, the first four being English history keywords related to
   the story (for example "history", "ancient india", "empire", "kingdom"),
   then Telugu and English search keywords people would type.
@@ -371,9 +379,13 @@ def to_markdown(data: dict) -> str:
     lines += ["---", ""]
     for sc in data["scenes"]:
         qs = [one_line(q) for q in sc.get("queries", []) if str(q).strip()][:2]
+        arts = [one_line(a).replace("{", "(").replace("}", ")")
+                for a in sc.get("image_prompts", []) if str(a).strip()][:2]
         lines.append(f"## {one_line(sc['heading'])}")
         lines.append(one_line(sc["narration"]))
         lines.append(" ".join(f"[[{q}]]" for q in qs))
+        if arts:
+            lines.append(" ".join("{{" + a + "}}" for a in arts))
         lines.append("")
     return "\n".join(lines) + "\n"
 
