@@ -153,6 +153,11 @@ weekdays) - much lighter than the others (no ffmpeg/Piper/Whisper/Ollama).
 
 ## QA gatekeeper (`pipeline/qa_gate.py`, `pipeline/qa_queue.py`)
 
+> **Currently OFF** (`[qa] enabled = false` in `config.example.toml`): reels,
+> stories, images and glimpses post without the AI visual check, with no API
+> call. Set it back to `true` (and make sure the Anthropic account has credit)
+> to re-enable everything below.
+
 Every Reel/story and fact-image is checked **before** it's staged/posted -
 not just for the six daily Instagram posts above, but the glimpse Reels cut
 from each full YouTube video too (`pipeline.instagram.stage_glimpse`).

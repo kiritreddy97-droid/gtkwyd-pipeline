@@ -44,6 +44,12 @@ sentence_silence = 0.5
 noise_scale = 0.667
 noise_w = 0.8
 
+[qa]
+# The AI visual quality check on Instagram reels, stories and fact images
+# (pipeline/qa_gate.py, needs ANTHROPIC_API_KEY credit). Turned OFF: every
+# reel/story/image posts without it. Set to true to bring it back.
+enabled = false
+
 [telugu]
 # The daily Telugu history-story channel (telugu.py / telugu.yml). Uses its own
 # YouTube login (youtube_token_te.json) and Gemini for the writing.

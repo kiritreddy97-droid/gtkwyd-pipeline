@@ -31,6 +31,16 @@ def _api_key() -> str:
     return os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
 
+def enabled() -> bool:
+    """[qa] enabled in config (default on). Off = every check passes silently,
+    with no API call and nothing recorded."""
+    try:
+        from .util import load_config
+        return bool(load_config().get("qa", {}).get("enabled", True))
+    except Exception:  # noqa: BLE001 - a config hiccup must not change behaviour
+        return True
+
+
 def vision_available() -> bool:
     return bool(_api_key())
 
@@ -90,6 +100,8 @@ def check_reel(video_path: Path, cover_path: Path | None,
     (passed, issues) - issues carries the reviewer's reasoning either way,
     and a note instead of a real check whenever vision isn't available."""
     issues: list[str] = []
+    if not enabled():
+        return True, issues
     if not vision_available():
         issues.append("vision check skipped (ANTHROPIC_API_KEY not set) - "
                       "posted without a visual QA pass")
@@ -133,6 +145,8 @@ def check_reel(video_path: Path, cover_path: Path | None,
 def check_image_post(image_path: Path, hook_text: str) -> tuple[bool, list[str]]:
     """QA a fact-image post before it's staged for Instagram."""
     issues: list[str] = []
+    if not enabled():
+        return True, issues
     if not vision_available():
         issues.append("vision check skipped (ANTHROPIC_API_KEY not set) - "
                       "posted without a visual QA pass")
