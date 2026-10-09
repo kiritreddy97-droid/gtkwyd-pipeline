@@ -24,7 +24,7 @@ on:
       kind:
         description: "daily (story + Short), long, short, selftest (renders a bundled sample, no Gemini/YouTube needed), or gemini-check (lists which Gemini models your key can use)"
         type: choice
-        options: [daily, long, short, selftest, gemini-check]
+        options: [daily, long, short, selftest, gemini-check, media-check]
         default: daily
       dry_run:
         description: "render only, do not upload"
@@ -141,7 +141,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: telugu-rendered
-          path: build/*/*.mp4
+          path: |
+            build/*/*.mp4
+            build/media-check/*
           retention-days: 2
           if-no-files-found: ignore
 

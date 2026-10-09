@@ -305,7 +305,8 @@ def status() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="telugu")
-    ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check"))
+    ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check",
+                                       "media-check"))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
@@ -323,6 +324,13 @@ def main() -> int:
                 print(line)
         except Exception as e:  # noqa: BLE001
             print(f"model list failed: {e}"); return 1
+        return 0
+    if args.kind == "media-check":
+        if not writer_te.available():
+            print("GEMINI_API_KEY is not set"); return 1
+        from pipeline import genmedia
+        for line in genmedia.check(BUILD_DIR / "media-check"):
+            print(line)
         return 0
     if args.kind == "selftest":
         return run_selftest()
