@@ -77,12 +77,18 @@ def _candidates() -> list[str]:
     return sorted(flash, key=rank)
 
 
-def _ping(model: str) -> int:
-    r = requests.post(
-        f"{GEMINI_BASE}/models/{model}:generateContent",
-        headers={"x-goog-api-key": api_key(), "Content-Type": "application/json"},
-        json={"contents": [{"parts": [{"text": "Reply with the single word OK."}]}],
-              "generationConfig": {"maxOutputTokens": 16}}, timeout=60)
+def _ping(model: str) -> int | str:
+    """HTTP status of a tiny generateContent call, or 'timeout'/'error'."""
+    try:
+        r = requests.post(
+            f"{GEMINI_BASE}/models/{model}:generateContent",
+            headers={"x-goog-api-key": api_key(), "Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": "Reply with the single word OK."}]}],
+                  "generationConfig": {"maxOutputTokens": 16}}, timeout=40)
+    except requests.Timeout:
+        return "timeout"
+    except requests.RequestException:
+        return "error"
     return r.status_code
 
 
