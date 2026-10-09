@@ -30,7 +30,8 @@ _EXAMPLE = textwrap.dedent("""\
     ---
 
     ## No one is in charge
-    The queen does not give orders, and no single bee has a plan for the
+    How can a hive of thousands of bees make good decisions when nobody is in
+    charge? The queen does not give orders, and no single bee has a plan for the
     colony. Thousands of workers react only to their immediate neighbours,
     through touch, scent, and movement, and the colony's larger behaviour
     emerges from millions of these small, local interactions. A hive can
@@ -128,9 +129,17 @@ _SYSTEM = textwrap.dedent(f"""\
     - Only facts found in mainstream encyclopedias and textbooks. If unsure a
       fact is true and well known, leave it out.
     - No medical, financial, legal, current-political, religious, or
-      controversial content. No advice to the viewer. Third person, declarative.
+      controversial content. No advice to the viewer. Third person, declarative,
+      EXCEPT the opening sentence (see HOOK).
     - No clickbait or exaggeration.
     - Calm, clear, curious tone. Plain words. Short sentences.
+
+    HOOK - the very first sentence of the first scene decides whether people
+    keep watching. Make it 9-24 words and do at least two of these: pose a
+    question the viewer cannot answer yet; use one real number from the script;
+    say "you" or "your" within the first six words; hint at what the viewer
+    would miss or get wrong. It must only use facts the script itself states.
+    Never open with a definition ("X is a ...") or a flat statement of the topic.
 
     FORMAT - copy this structure EXACTLY. 8 to 10 scenes (this is a 4-6 minute
     video, not a Short - go deep on each fact instead of listing many shallow
@@ -151,7 +160,10 @@ _SYSTEM_SHORT = textwrap.dedent(f"""\
     HARD RULES:
     - Only well-known, textbook-accurate facts. No medical, financial,
       current-political, religious, or controversial content. No advice.
-    - Hook the viewer in the very first sentence.
+    - Hook the viewer in the very first sentence: 9-24 words, ideally a
+      question the viewer cannot answer yet, or a real number from the script,
+      or "you"/"your" in the first six words. Never open with a definition or a
+      flat statement of the topic.
     - Punchy. Short sentences. One single idea for the whole Short - do not
       drift to a second topic.
 
@@ -167,7 +179,7 @@ _SYSTEM_SHORT = textwrap.dedent(f"""\
     ---
 
     ## The pattern
-    People who score lowest on a test often rate their performance the highest.
+    Why do the people who score lowest on a test often rate themselves the highest?
     Psychologists call it the Dunning-Kruger effect.
     [[confident person talking]] [[rising graph]]
 
@@ -425,6 +437,96 @@ def _self_review(script_md: str, model: str, kind: str = "video") -> tuple[bool,
     return True, "ok (minor notes ignored)"
 
 
+# --------------------------------------------------------------------------- #
+# hook upgrade: rewrite a weak opening sentence, never adding new facts
+# --------------------------------------------------------------------------- #
+HOOK_MIN_SCORE = 52   # openers scoring at or above this are left alone
+HOOK_MIN_GAIN = 8     # a rewrite must beat the original by at least this much
+
+_HOOK_PROMPT = textwrap.dedent("""\
+    Below is the opening sentence of a YouTube script, followed by the full
+    script for context. Rewrite ONLY the opening sentence as a stronger spoken
+    hook. Write 5 different options, one per line, no numbering, no quotes.
+
+    Rules for every option:
+    - 9 to 24 words.
+    - Use ONLY facts, names and numbers that already appear in the script. Do
+      not add any new fact or number.
+    - Do at least two of: pose a question the viewer cannot answer yet; use a
+      real number from the script; say "you" or "your" within the first six
+      words; hint at what the viewer would miss or get wrong.
+    - No advice ("you should"), no clickbait, no hype words.
+
+    OPENING SENTENCE: {opener}
+
+    SCRIPT:
+    {script}
+    """)
+
+_FIRST_SENTENCE = re.compile(r"^(.+?[.!?])(?:\s|$)", re.S)
+
+
+def _digits(text: str) -> set[str]:
+    return set(re.findall(r"\d[\d,.]*", text))
+
+
+def _hook_ok(candidate: str, script_text: str) -> bool:
+    n = len(candidate.split())
+    if not 9 <= n <= 24:
+        return False
+    if not _digits(candidate) <= _digits(script_text):
+        return False  # a rewrite must not invent a number
+    low = candidate.lower()
+    if guardrails._BANNED.search(candidate):
+        return False
+    return not any(re.search(p, low) for p in guardrails._BANNED_SCRIPT_PATTERNS)
+
+
+def _improve_hook(md: str, model: str, ask=None) -> str:
+    """Return md with its opening sentence replaced by a better-scoring rewrite,
+    or md unchanged if the opener is already fine or nothing safe beats it."""
+    from . import hookscore
+    from .script_parser import parse_script_text
+
+    try:
+        script = parse_script_text(md)
+        narration = script.scenes[0].narration
+        m = _FIRST_SENTENCE.match(narration)
+        opener = (m.group(1) if m else narration).strip()
+        base, _ = hookscore.score(opener)
+        if base >= HOOK_MIN_SCORE:
+            return md
+        script_text = " ".join(sc.narration for sc in script.scenes)
+        prompt = _HOOK_PROMPT.format(opener=opener, script=script_text)
+        if ask is None:
+            resp = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": model, "prompt": prompt, "stream": False,
+                      "options": {"temperature": 0.7, "num_predict": 260}},
+                timeout=300)
+            resp.raise_for_status()
+            reply = resp.json().get("response", "")
+        else:
+            reply = ask(prompt)
+        cands = []
+        for line in reply.splitlines():
+            line = re.sub(r"^\s*(?:[-*\d.)]+\s*)", "", line).strip().strip('"“”')
+            if line and _hook_ok(line, script_text):
+                cands.append(line)
+        if not cands:
+            return md
+        best = max(cands, key=lambda c: hookscore.score(c)[0])
+        if hookscore.score(best)[0] < base + HOOK_MIN_GAIN:
+            return md
+        if opener not in md:
+            return md
+        print(f"[hook]  {base} -> {hookscore.score(best)[0]}: {best}")
+        return md.replace(opener, best, 1)
+    except Exception as e:  # noqa: BLE001 - a hook rewrite must never sink a script
+        print(f"[hook]  skipped ({e})")
+        return md
+
+
 _NEWS_SYSTEM = textwrap.dedent(f"""\
     You write short explainer scripts for the YouTube channel
     "Get To Know What You Don't". You are given a real news headline and summary
@@ -438,6 +540,9 @@ _NEWS_SYSTEM = textwrap.dedent(f"""\
     - Neutral and factual. No hype, no "this changes everything", no politics,
       no speculation about the future beyond what the source says.
     - Third person, declarative. Calm and curious.
+    - The first sentence of the first scene is a hook: 9-24 words, a question
+      the viewer cannot answer yet or a real number from the summary, with no
+      definition-style opener, using only facts from the summary.
 
     FORMAT - copy this structure EXACTLY. 5 to 7 scenes. Each scene: a "## "
     heading, then 3-4 sentences, then one line with two [[double-bracket]] image
@@ -479,7 +584,7 @@ def generate_news_script(headline: str, summary: str, source: str,
         s_ok, s_issues = guardrails.check_script(
             " ".join(sc.narration for sc in script.scenes), kind="news")
         if t_ok and s_ok and 5 <= len(script.scenes) <= 8:
-            return md
+            return _improve_hook(md, model)
         last = ([] if t_ok else [f"title: {t_why}"]) + s_issues
     raise PipelineError(f"news script failed for {headline!r}: {' | '.join(last)}")
 
@@ -858,7 +963,7 @@ def generate_script(topic: str, model: str = DEFAULT_MODEL, attempts: int = 3,
             if not good:
                 last = [f"self-review flagged: {note}"]
                 continue
-        return md
+        return _improve_hook(md, model)
 
     raise PipelineError(
         f"no clean script for {topic!r} after {attempts} tries. "
