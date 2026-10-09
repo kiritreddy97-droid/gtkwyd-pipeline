@@ -47,13 +47,30 @@ SMOOTH_POOL = [
 ]
 
 
+EDGE_PREFIX = "edge:"
+
+# Microsoft Edge neural voices (free). The "Multilingual" voices are the newest
+# and most natural; the rest are the best of the older generation.
+EDGE_POOL = {
+    "en": ["en-US-AndrewMultilingualNeural", "en-US-BrianMultilingualNeural",
+           "en-US-AvaMultilingualNeural", "en-US-EmmaMultilingualNeural",
+           "en-GB-RyanNeural", "en-GB-SoniaNeural"],
+    "te": ["te-IN-MohanNeural", "te-IN-ShrutiNeural"],
+}
+
+
 def pick_voice(explicit: str | None = None, rotate: bool = True,
-               fallback: str = DEFAULT_VOICE) -> str:
-    """Explicit (e.g. a script's own `voice:` line) always wins. Otherwise
+               fallback: str = DEFAULT_VOICE, engine: str = "piper",
+               lang: str = "en") -> str:
+    """Explicit (e.g. a script's own `voice:` line) always wins. With
+    engine="edge" return "edge:<voice>" from the language's pool; otherwise
     rotate randomly through SMOOTH_POOL, or return `fallback` if rotation is
     off."""
     if explicit:
         return explicit
+    if engine == "edge":
+        pool = EDGE_POOL.get(lang) or EDGE_POOL["en"]
+        return EDGE_PREFIX + random.choice(pool)
     return random.choice(SMOOTH_POOL) if rotate else fallback
 
 

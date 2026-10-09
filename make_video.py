@@ -20,12 +20,16 @@ from pipeline.script_parser import parse_script
 from pipeline.util import (ASSETS_DIR, BUILD_DIR, PipelineError, check_ffmpeg,
                            dims, load_config, slugify)
 from pipeline.visuals import Asset, VisualFetcher
-from pipeline.voices import DEFAULT_VOICE, ensure_voice, list_voices, pick_voice
+from pipeline.voices import (DEFAULT_VOICE, EDGE_PREFIX, ensure_voice, list_voices,
+                             pick_voice)
 
 
 OUTRO_SPOKEN = ("For more information and to stay updated, please like, "
                "share, and subscribe.")
 OUTRO_DISPLAY = "LIKE, SHARE & SUBSCRIBE for more like this"
+OUTRO_SPOKEN_TE = ("ఇలాంటి మరిన్ని చరిత్ర కథల కోసం, లైక్ చేయండి, షేర్ చేయండి, "
+                   "మరియు సబ్‌స్క్రైబ్ చేయండి.")
+OUTRO_DISPLAY_TE = "ఇలాంటి మరిన్ని కథల కోసం\nసబ్‌స్క్రైబ్ చేయండి"
 
 
 def _pick_music(is_short: bool, title: str = "", tags: list[str] | None = None) -> Path | None:
@@ -83,17 +87,49 @@ def main() -> int:
         shutil.rmtree(workdir)
     (workdir / "narration").mkdir(parents=True)
 
+    lang = script.lang
     vcfg = cfg.get("voice", {})
+    # Telugu always uses the Edge neural voices (Piper has no usable Telugu voice).
+    engine = vcfg.get("engine", "piper") if lang == "en" else "edge"
     voice_name = pick_voice(script.voice, rotate=bool(vcfg.get("rotate", True)),
-                            fallback=vcfg.get("model", DEFAULT_VOICE))
-    onnx, _ = ensure_voice(voice_name)
+                            fallback=vcfg.get("model", DEFAULT_VOICE),
+                            engine=engine, lang=lang)
+    use_edge = voice_name.startswith(EDGE_PREFIX)
+    if lang != "en":
+        cfg.setdefault("visuals", {})["prefer_animation"] = False  # history needs real imagery
+        channel = cfg.get("telugu", {}).get("channel_name", channel)
     # Small per-render jitter around the configured base values, so two
     # videos using the same voice still don't come out sounding identical.
     length_scale = max(0.85, float(vcfg.get("length_scale", 1.0)) + random.uniform(-0.04, 0.05))
     sentence_silence = float(vcfg.get("sentence_silence", 0.35))
     noise_scale = max(0.3, float(vcfg.get("noise_scale", 0.667)) + random.uniform(-0.06, 0.06))
     noise_w = max(0.3, float(vcfg.get("noise_w", 0.8)) + random.uniform(-0.08, 0.08))
-    print(f"[voice]  {voice_name}  (length={length_scale:.2f} noise={noise_scale:.2f}/{noise_w:.2f})")
+    base_rate = int(vcfg.get("edge_rate", -3)) if lang == "en" else int(vcfg.get("te_rate", -6))
+    rate_pct = base_rate + random.randint(-2, 2)
+    pitch_hz = random.randint(-2, 2)
+    if use_edge:
+        print(f"[voice]  {voice_name}  (rate={rate_pct:+d}% pitch={pitch_hz:+d}Hz)")
+    else:
+        print(f"[voice]  {voice_name}  (length={length_scale:.2f} noise={noise_scale:.2f}/{noise_w:.2f})")
+
+    piper_onnx = None
+
+    def speak(text: str, wav: Path):
+        """Narrate text into wav. Returns word timings (Edge) or None (Piper)."""
+        nonlocal piper_onnx
+        if use_edge:
+            try:
+                return tts.synthesize_edge(text, wav, voice_name[len(EDGE_PREFIX):],
+                                           rate_pct, pitch_hz)
+            except PipelineError as e:
+                if lang != "en":
+                    raise
+                print(f"[voice]  Edge voice failed ({e}); falling back to Piper")
+        if piper_onnx is None:
+            piper_onnx, _ = ensure_voice(DEFAULT_VOICE if use_edge else voice_name)
+        tts.synthesize(text, wav, piper_onnx, length_scale, sentence_silence,
+                       noise_scale=noise_scale, noise_w=noise_w)
+        return None
 
     fetcher = None
     if not args.no_stock:
@@ -103,6 +139,7 @@ def main() -> int:
     scene_finals: list[Path] = []
     scene_durations: list[float] = []
     scene_wavs: list[tuple[Path, float]] = []
+    scene_timings: list[tuple[list | None, float, str]] = []
     first_asset: Asset | None = None
     sources: set[str] = set()
     running = 0.0
@@ -110,8 +147,7 @@ def main() -> int:
     for i, scene in enumerate(script.scenes):
         print(f"  scene {i + 1}/{len(script.scenes)}: {scene.heading}")
         wav = workdir / "narration" / f"scene_{i:02d}.wav"
-        tts.synthesize(scene.narration, wav, onnx, length_scale, sentence_silence,
-                      noise_scale=noise_scale, noise_w=noise_w)
+        timings = speak(scene.narration, wav)
 
         slide_text = None
         assets: list[Asset] = []
@@ -127,10 +163,11 @@ def main() -> int:
                 first_asset = assets[0]
 
         scene_mp4, dur = assemble.build_scene(
-            i, wav, assets, cfg, workdir, slide_text=slide_text)
+            i, wav, assets, cfg, workdir, slide_text=slide_text, lang=lang)
         scene_finals.append(scene_mp4)
         scene_durations.append(dur)
         scene_wavs.append((wav, running))
+        scene_timings.append((timings, running, scene.narration))
         running += dur
 
     # Every video and Short ends on the same like/share/subscribe card -
@@ -139,20 +176,27 @@ def main() -> int:
     cta_idx = len(script.scenes)
     print(f"  scene {cta_idx + 1}/{len(script.scenes) + 1}: outro (like/share/subscribe)")
     cta_wav = workdir / "narration" / f"scene_{cta_idx:02d}.wav"
-    tts.synthesize(OUTRO_SPOKEN, cta_wav, onnx, length_scale, sentence_silence,
-                  noise_scale=noise_scale, noise_w=noise_w)
+    outro_spoken = OUTRO_SPOKEN if lang == "en" else OUTRO_SPOKEN_TE
+    outro_display = OUTRO_DISPLAY if lang == "en" else OUTRO_DISPLAY_TE
+    cta_timings = speak(outro_spoken, cta_wav)
     cta_mp4, cta_dur = assemble.build_scene(
-        cta_idx, cta_wav, [], cfg, workdir, slide_text=OUTRO_DISPLAY)
+        cta_idx, cta_wav, [], cfg, workdir, slide_text=outro_display, lang=lang)
     scene_finals.append(cta_mp4)
     scene_durations.append(cta_dur)
     scene_wavs.append((cta_wav, running))
+    scene_timings.append((cta_timings, running, outro_spoken))
     running += cta_dur
 
     ass_path = None
     srt_out = None
     if cfg.get("captions", {}).get("enabled", True) and not args.no_captions:
-        print("[captions] transcribing narration ...")
-        cap = captions.generate(scene_wavs, workdir, slug, w, h, cfg)
+        if all(t is not None for t, _, _ in scene_timings):
+            print("[captions] from the voice's own word timings ...")
+            cap = captions.generate_from_timings(scene_timings, workdir, slug, w, h,
+                                                 cfg, lang)
+        else:
+            print("[captions] transcribing narration ...")
+            cap = captions.generate(scene_wavs, workdir, slug, w, h, cfg)
         ass_path = cap["ass"]
         srt_out = cap["srt"]
 
@@ -181,14 +225,16 @@ def main() -> int:
     try:
         from pipeline import thumbnail
         thumbnail.generate(script.title, channel, first_asset, workdir, thumb,
-                           tags=script.tags, show_badge=not args.portrait)
+                           tags=script.tags, show_badge=not args.portrait, lang=lang)
     except Exception as e:
         print(f"[thumb]  skipped ({e})")
         thumb = None
 
     meta_txt = BUILD_DIR / slug / f"{slug}_metadata.txt"
     metadata.generate(script, scene_starts, total, sources, channel, meta_txt,
-                      is_short=args.short)
+                      is_short=args.short, lang=lang,
+                      voice_credit=("Microsoft neural text-to-speech (Edge voices)"
+                                    if use_edge else "Piper (open-source, offline)"))
 
     # captions.generate already writes {slug}.srt / {slug}.ass into workdir,
     # which is the build/<slug> output dir, so nothing to copy.

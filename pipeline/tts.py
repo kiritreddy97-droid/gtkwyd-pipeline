@@ -1,10 +1,57 @@
-"""Narration synthesis with the offline Piper binary."""
+"""Narration synthesis: Microsoft Edge neural voices (default, natural-sounding,
+free, with word timings) or the offline Piper binary (fallback)."""
 from __future__ import annotations
 
+import asyncio
 import subprocess
+import time
 from pathlib import Path
 
-from .util import PIPER_EXE, ROOT, PipelineError
+from .util import FFMPEG, PIPER_EXE, ROOT, PipelineError, run
+
+WordTiming = tuple[float, float, str]  # (start_s, end_s, word)
+
+
+def synthesize_edge(text: str, out_wav: Path, voice: str, rate_pct: int = 0,
+                    pitch_hz: int = 0, retries: int = 4) -> list[WordTiming]:
+    """Speak `text` with an Edge neural voice into out_wav (24 kHz mono) and
+    return per-word timings measured against that file. Raises PipelineError
+    after repeated failures so callers can fall back to Piper."""
+    try:
+        import edge_tts
+    except ImportError as e:
+        raise PipelineError("edge-tts not installed (pip install edge-tts)") from e
+
+    out_wav.parent.mkdir(parents=True, exist_ok=True)
+    mp3 = out_wav.with_suffix(".mp3")
+    clean = " ".join(text.split())
+    last: Exception | None = None
+
+    async def _go() -> list[WordTiming]:
+        comm = edge_tts.Communicate(clean, voice, rate=f"{rate_pct:+d}%",
+                                    pitch=f"{pitch_hz:+d}Hz", boundary="WordBoundary")
+        words: list[WordTiming] = []
+        with mp3.open("wb") as fh:
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    fh.write(chunk["data"])
+                elif chunk["type"] == "WordBoundary":
+                    start = chunk["offset"] / 1e7
+                    words.append((start, start + chunk["duration"] / 1e7, chunk["text"]))
+        return words
+
+    for attempt in range(1, retries + 1):
+        try:
+            words = asyncio.run(_go())
+            if not mp3.exists() or mp3.stat().st_size < 1000:
+                raise PipelineError("edge-tts returned no audio")
+            run([FFMPEG, "-y", "-i", mp3, "-ar", "24000", "-ac", "1", out_wav])
+            mp3.unlink(missing_ok=True)
+            return words
+        except Exception as e:  # noqa: BLE001 - network/service hiccup
+            last = e
+            time.sleep(2 * attempt)
+    raise PipelineError(f"edge-tts failed after {retries} tries: {last}")
 
 _ESPEAK_DATA = ROOT / "piper" / "espeak-ng-data"
 

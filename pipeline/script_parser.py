@@ -52,6 +52,7 @@ class Script:
     music: str | None
     voice: str | None
     scenes: list[Scene]
+    lang: str = "en"
 
 
 def _parse_frontmatter(block: str) -> dict:
@@ -133,4 +134,5 @@ def parse_script_text(text: str, fallback_title: str = "Untitled") -> Script:
         music=meta.get("music") or None,
         voice=meta.get("voice") or None,
         scenes=scenes,
+        lang=(meta.get("lang") or "en").strip().lower(),
     )

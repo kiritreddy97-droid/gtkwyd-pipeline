@@ -56,16 +56,20 @@ def _require_libs():
         ) from e
 
 
-def get_service(interactive: bool = True):
+def get_service(interactive: bool = True, token_path: Path | None = None):
+    """token_path selects which channel's login to use (default: the main
+    channel's youtube_token.json). Each channel authorises once with its own
+    Google account and keeps its own token file."""
     _require_libs()
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
 
+    token = Path(token_path) if token_path else TOKEN
     creds = None
-    if TOKEN.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
+    if token.exists():
+        creds = Credentials.from_authorized_user_file(str(token), SCOPES)
 
     changed = False
     if not creds or not creds.valid:
@@ -102,7 +106,7 @@ def get_service(interactive: bool = True):
                 )
 
     if changed:
-        TOKEN.write_text(creds.to_json(), encoding="utf-8")
+        token.write_text(creds.to_json(), encoding="utf-8")
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -115,13 +119,14 @@ def channel_title(yt) -> str:
 def upload(video: Path, *, title: str, description: str, tags: list[str],
            privacy: str = "private", made_for_kids: bool = False,
            category_id: str = CATEGORY_EDUCATION, thumbnail: Path | None = None,
-           publish_at_iso: str | None = None, playlist_id: str | None = None) -> str:
+           publish_at_iso: str | None = None, playlist_id: str | None = None,
+           token_path: Path | None = None, language: str | None = None) -> str:
     import socket
 
     from googleapiclient.http import MediaFileUpload
 
     socket.setdefaulttimeout(180)  # never let a chunk hang forever
-    yt = get_service(interactive=False)
+    yt = get_service(interactive=False, token_path=token_path)
 
     status: dict = {
         "privacyStatus": "private" if publish_at_iso else privacy,
@@ -140,6 +145,9 @@ def upload(video: Path, *, title: str, description: str, tags: list[str],
         },
         "status": status,
     }
+    if language:
+        body["snippet"]["defaultLanguage"] = language
+        body["snippet"]["defaultAudioLanguage"] = language
 
     media = MediaFileUpload(str(video), chunksize=8 * 1024 * 1024, resumable=True)
     req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
@@ -181,8 +189,12 @@ def upload(video: Path, *, title: str, description: str, tags: list[str],
 
 if __name__ == "__main__":
     if "--auth" in sys.argv:
-        svc = get_service(interactive=True)
+        # --token youtube_token_te.json  authorises a second channel
+        tok = None
+        if "--token" in sys.argv:
+            tok = ROOT / sys.argv[sys.argv.index("--token") + 1]
+        svc = get_service(interactive=True, token_path=tok)
         print(f"Authorised. Channel: {channel_title(svc)}")
-        print(f"Token saved to {TOKEN}")
+        print(f"Token saved to {tok or TOKEN}")
     else:
-        print("usage: python -m pipeline.youtube --auth")
+        print("usage: python -m pipeline.youtube --auth [--token <file.json>]")

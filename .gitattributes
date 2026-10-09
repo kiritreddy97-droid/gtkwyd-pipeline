@@ -7,4 +7,6 @@
 # of conflict-marking, which is exactly correct for line-independent logs
 # like these (each line/JSON record stands alone).
 history.jsonl merge=union
+history-telugu.jsonl merge=union
 topics_used.txt merge=union
+topics-telugu-history.txt merge=union

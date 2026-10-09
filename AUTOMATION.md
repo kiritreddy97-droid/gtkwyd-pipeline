@@ -182,6 +182,62 @@ until the key is added. Get a key at console.anthropic.com, then:
 gh secret set ANTHROPIC_API_KEY --body "sk-ant-..."
 ```
 
+## Narration voice (`pipeline/tts.py`, `[voice]` in config)
+
+Narration now uses Microsoft's **Edge neural voices** (free, via the `edge-tts`
+package; `[voice] engine = "edge"`): a rotating pool of natural-sounding
+English voices (Andrew, Brian, Ava, Emma, Ryan, Sonia) with a small per-video
+pace/pitch jitter. They also return exact word timings, so captions are built
+from the script text itself - more accurate than speech recognition, and no
+Whisper model download. If Edge can't be reached for a render, English falls
+back to the Piper voices automatically (`engine = "piper"` forces Piper).
+Caveat: Edge-TTS uses Microsoft's public read-aloud service without an official
+agreement, so treat it as best-effort; the Piper fallback is the safety net.
+
+## Script openers (`pipeline/writer.py`, `pipeline/hookscore.py`)
+
+The writer prompts require a real hook as the first sentence (a question the
+viewer can't answer yet, a number from the script, "you" early, or what they'd
+miss). If an opener still scores weak on the five-property hook scorer, the
+model proposes five rewrites; only one that adds no new number, avoids the
+banned/advice patterns, and beats the original by 8+ points is swapped in.
+
+## Telugu history channel (`telugu.py`, `.github/workflows/telugu.yml`)
+
+A second, separate YouTube channel: **one ~10-minute narrated history story per
+day (19:17 IST) and one ~60-second Short (12:17 IST)**, in Telugu, with matching
+stock footage, word-timed Telugu captions and a Telugu thumbnail. The Short is
+written together with the day's story and queued, so it airs the next day.
+
+- **Writer**: Google Gemini (free tier; the local 3B model can't write Telugu).
+  Structured output, strict validation (Telugu script, 640-900 words / 12-20
+  scenes for the story), and a second fact-check/language review pass. Topics
+  come from `topics-telugu-history.txt`; when fewer than 10 remain, Gemini adds
+  40 more. The model name is configurable and auto-replaced if retired.
+- **Voice**: `te-IN-ShrutiNeural` / `te-IN-MohanNeural` (Edge).
+- **State**: `history-telugu.jsonl` (separate from `history.jsonl`, so the English
+  channel's daily cap and health checks never see it).
+- **Visibility**: `[telugu] visibility = "unlisted"` until you've watched a few
+  episodes, then set `"public"` in `config.example.toml` (CI builds its config
+  from that file).
+
+One-time setup (the pipeline no-ops cleanly until both are done):
+
+```powershell
+# 1. Free Gemini key from https://aistudio.google.com/apikey
+gh secret set GEMINI_API_KEY --body "<your key>"
+
+# 2. Authorise the Telugu channel (log in with the Google account / brand
+#    channel it should upload to), then store the token as a secret
+.venv\Scripts\python -m pipeline.youtube --auth --token youtube_token_te.json
+Get-Content youtube_token_te.json -Raw | gh secret set YT_TE_TOKEN
+```
+
+Check the whole Telugu path on GitHub's servers any time with **Actions ->
+telugu -> Run workflow -> kind = selftest** (renders a bundled sample, no key or
+login needed; download the video from the run's artifacts). Local status:
+`python telugu.py --status`.
+
 ## Monitoring
 
 ```powershell

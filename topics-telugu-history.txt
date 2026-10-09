@@ -1,0 +1,101 @@
+# Story topics for the Telugu history channel (telugu.py). One per line, used
+# top-down; '#' lines are ignored. Gemini writes the Telugu story from each
+# English line. When fewer than 10 remain, telugu.py asks Gemini for 40 more.
+# Keep topics well-documented, family-friendly, and free of present-day politics.
+How Krishnadevaraya made Vijayanagara one of the richest cities in the world
+The Battle of Talikota and the fall of Vijayanagara
+Pingali Venkayya, the Telugu man who designed India's national flag
+Rani Rudrama Devi, the ruling queen of the Kakatiya dynasty
+The Kohinoor diamond's journey out of the Golconda region
+How Golconda Fort's clap-signal acoustics worked
+The founding of Hyderabad and the building of Charminar
+Alluri Sitarama Raju and the Rampa rebellion of 1922
+Tanguturi Prakasam, the Andhra Kesari who bared his chest to the police in 1928
+The Satavahana dynasty and the great stupa of Amaravati
+The Kakatiya engineers who built Ramappa Temple with bricks that float
+The Kakatiya chain of water tanks that fed Telangana for centuries
+Rajaraja Chola and the thousand-year engineering of Brihadisvara Temple
+The Chola navy and its voyages to Southeast Asia
+Hampi's musical pillars and stone chariot: engineering of the Vijayanagara empire
+Tenali Ramakrishna: the folk tales and the historical poet (told as folklore)
+The Ashtadiggajas, the eight great poets of Krishnadevaraya's court
+Ashoka and the turning point at Kalinga
+How Nalanda became the first great residential university
+Dholavira: the Indus Valley city that mastered water
+Lothal, the ancient dockyard of the Indus civilisation
+Aryabhata and the calculation of the Earth's rotation
+Brahmagupta and the first rules for using zero
+The iron pillar of Delhi that has not rusted in 1600 years
+The Konark Sun Temple and its chariot-wheel sundials
+Chanakya and the rise of the Mauryan empire
+The Ajanta caves rediscovered by a hunting party in 1819
+Rani Lakshmibai of Jhansi and the events of 1857
+C. V. Raman and the discovery of the Raman effect
+Srinivasa Ramanujan, his notebooks, and G. H. Hardy
+Sir M. Visvesvaraya and the flood protection of Hyderabad after the great Musi flood of 1908
+Sir Arthur Cotton and the Godavari anicut that fed the Telugu delta
+The Jacob Diamond: the Nizam's paperweight
+The Great Trigonometrical Survey that measured India and the height of Everest
+Bhaskaracharya and the legend of Lilavati
+The Kailasa temple at Ellora, carved from a single rock
+Megasthenes in Pataliputra: a Greek ambassador describes Mauryan India
+Why the Gupta period is called India's golden age
+Ibn Battuta's thirty-year journey, including his years in India
+The night Pompeii vanished
+How Hannibal crossed the Alps with elephants
+The mystery of the Library of Alexandria
+The Rosetta Stone and the race to decode hieroglyphs
+How the Great Pyramid was built
+Marco Polo's journey to the court of Kublai Khan
+The Silk Road: how silk and ideas crossed continents
+The Terracotta Army of China's first emperor
+Machu Picchu: the city in the clouds
+Vasco da Gama's voyage to India
+Magellan's expedition around the world
+The Great Fire of London in 1666
+The sinking of the Titanic and the lessons it left behind
+The Wright brothers' first flight at Kitty Hawk
+Marie Curie, the woman who won two Nobel Prizes
+The race to the South Pole: Amundsen versus Scott
+Apollo 13: the successful failure
+The first ascent of Mount Everest by Hillary and Tenzing
+Gutenberg and the printing press
+Leonardo da Vinci's secret notebooks
+Genghis Khan's relay-rider postal system
+Cleopatra: the queen who spoke many languages
+The Antikythera mechanism: an ancient computer from a shipwreck
+The discovery of Tutankhamun's tomb
+The Trojan Horse: the myth, the poem, and what archaeologists found at Troy
+How the Panama Canal was built
+The Vikings who reached North America
+Easter Island's moai: how the giant statues moved
+The Great Wall of China: myth versus reality
+Alexander the Great and King Porus at the river Hydaspes
+How the Taj Mahal was built over twenty years
+How the Eiffel Tower was built in two years
+Archimedes and the golden crown (the Eureka legend)
+The Earthrise photograph taken by Apollo 8
+Tesla versus Edison: the war of the currents
+Alan Turing and the codebreakers of Bletchley Park
+Katherine Johnson and the mathematics that took humans to the Moon
+The Great Stink of London and the sewers that saved the city
+How Venice was built on water
+Zheng He's treasure fleet
+The Voyager Golden Record: humanity's message to the stars
+The Trans-Siberian Railway: building the longest railway on Earth
+The Mongol empire's biggest-ever trade network
+How Angkor Wat rose in the Cambodian jungle
+Petra: the rose-red city carved into rock
+The Hanging Gardens of Babylon: fact or legend?
+The Nazca lines: giant drawings in the Peruvian desert
+Stonehenge: how and why it was built
+The Persian Royal Road and the world's first postal system
+How the Maya predicted eclipses
+The Library of Nineveh and the oldest known stories
+The Phoenicians and the invention of the alphabet
+The story of the Mary Rose, Henry VIII's sunken warship
+Captain Cook's voyages to the Pacific
+The Lewis and Clark expedition across America
+How the Suez Canal changed the world
+The Great Pyramid's lost builders' town
+Harriet Tubman and the Underground Railroad

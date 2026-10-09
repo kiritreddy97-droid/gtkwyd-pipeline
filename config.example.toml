@@ -14,7 +14,17 @@ pexels_key = ""
 pixabay_key = ""
 
 [voice]
-# Run  ./run.ps1 --list-voices  to see all options.
+# "edge" = Microsoft Edge neural voices (free, far more human than Piper; also
+# gives exact word timings so captions need no speech recognition). If Edge is
+# unreachable for a render, English falls back to the Piper settings below.
+# "piper" = offline Piper voices only.
+engine = "edge"
+# Narration pace for the Edge voices, in percent (-3 = slightly calmer than
+# default; a small random jitter is added per render). Telugu storytelling
+# is set a little slower.
+edge_rate = -3
+te_rate = -6
+# Run  ./run.ps1 --list-voices  to see all options (Piper voices).
 # true = pick a different smooth "-high" tier voice per video/Short from
 # pipeline.voices.SMOOTH_POOL (mixed gender/accent), plus a small random
 # jitter on pace and prosody each time - so the channel doesn't sound like
@@ -33,6 +43,18 @@ sentence_silence = 0.5
 # jitter is added per render on top of these too.
 noise_scale = 0.667
 noise_w = 0.8
+
+[telugu]
+# The daily Telugu history-story channel (telugu.py / telugu.yml). Uses its own
+# YouTube login (youtube_token_te.json) and Gemini for the writing.
+enabled = true
+# Shown on the thumbnail's top-right corner.
+channel_name = "తెలుగు చరిత్ర కథలు"
+# "unlisted" while you check the first few episodes, then change to "public".
+visibility = "unlisted"
+# Any Gemini Flash model; if this name is retired the writer picks a current one.
+gemini_model = "gemini-2.5-flash"
+playlist_id = ""
 
 [visuals]
 # "video" prefers stock clips, "image" prefers stills with a Ken Burns pan,

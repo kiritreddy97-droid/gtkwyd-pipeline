@@ -38,6 +38,7 @@ WINDOW_MIN = 20  # fire if now is within this many minutes AFTER the slot time
 # case-statement exactly - keep in sync if those ever change.
 _WEEKDAY = lambda d: d < 5          # Mon-Fri
 _WEEKDAY_SHIFTED = lambda d: 1 <= d <= 5  # Tue-Sat (the 8pm-crosses-midnight slot)
+_EVERYDAY = lambda d: True
 
 SLOTS = [
     ("publish.yml", 15, 7, _WEEKDAY, {"format": "video", "source": "news"}),
@@ -57,6 +58,8 @@ SLOTS = [
     ("reels.yml", 19, 26, _WEEKDAY, {"category": "soothing"}),
     ("reels.yml", 22, 47, _WEEKDAY, {"category": "fitness"}),
     ("fact-image.yml", 16, 52, _WEEKDAY, {}),
+    ("telugu.yml", 6, 47, _EVERYDAY, {"kind": "short"}),
+    ("telugu.yml", 13, 47, _EVERYDAY, {"kind": "long"}),
 ]
 
 

@@ -80,8 +80,11 @@ def _write_srt(chunks: list[Chunk], path: Path) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _write_ass(chunks: list[Chunk], path: Path, w: int, h: int, font: str) -> None:
-    fontsize = round(h * (0.041 if w < h else 0.052))
+def _write_ass(chunks: list[Chunk], path: Path, w: int, h: int, font: str,
+               upper: bool = True, spacing: float = 0.4, size_scale: float = 1.0) -> None:
+    # spacing must be 0 for Indic scripts: any letter-spacing makes libass drop
+    # text shaping, which detaches Telugu vowel signs from their letters.
+    fontsize = round(h * (0.041 if w < h else 0.052) * size_scale)
     margin_v = round(h * (0.24 if w < h else 0.09))  # portrait: clear the Shorts UI
     outline = max(2, round(fontsize * 0.12))
     header = f"""[Script Info]
@@ -93,19 +96,71 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,{font},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0.4,0,1,{outline},1,2,80,80,{margin_v},1
+Style: Caption,{font},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,{spacing},0,1,{outline},1,2,80,80,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     body = []
     for c in chunks:
-        txt = c.text.replace("\n", " ").upper()
+        txt = c.text.replace("\n", " ")
+        if upper:
+            txt = txt.upper()
         body.append(
             f"Dialogue: 0,{_fmt_ass(c.start)},{_fmt_ass(c.end)},Caption,,0,0,0,,"
             f"{{\\fad(70,70)}}{txt}"
         )
     path.write_text(header + "\n".join(body) + "\n", encoding="utf-8")
+
+
+def _tokens_with_punctuation(timings: list, text: str) -> list:
+    """Edge returns words without punctuation. When the script's own
+    whitespace-split words line up 1:1 with the timings, use those (so the
+    captions keep their commas and question marks)."""
+    import re
+
+    def norm(s: str) -> str:
+        return re.sub(r"\W", "", s.lower())
+
+    src = text.split()
+    out, i = [], 0
+    for s, e, tok in timings:
+        n = max(1, len(tok.split()))  # Edge sometimes merges e.g. "2 years old"
+        chunk = src[i:i + n]
+        if len(chunk) < n or norm("".join(chunk)) != norm(tok):
+            return list(timings)
+        out.append((s, e, " ".join(chunk)))
+        i += n
+    return out if i == len(src) else list(timings)
+
+
+def generate_from_timings(scenes: list[tuple[list, float, str]], out_dir: Path,
+                          stem: str, w: int, h: int, cfg: dict,
+                          lang: str = "en") -> dict:
+    """Captions straight from TTS word timings (no speech recognition).
+    scenes: (word_timings, start_offset_seconds, narration_text) per scene."""
+    cap_cfg = cfg.get("captions", {})
+    max_words = int(cap_cfg.get("max_words_per_line", 4))
+    if lang != "en":
+        max_words = min(max_words, 3)  # Telugu words are long
+    if w < h:
+        max_words = min(max_words, 3)
+    font = cap_cfg.get("font", "Arial") if lang == "en" else cap_cfg.get("te_font", "Noto Sans Telugu")
+
+    all_chunks: list[Chunk] = []
+    for timings, offset, text in scenes:
+        words = _tokens_with_punctuation(timings, text)
+        if words:
+            all_chunks.extend(_chunk_words(words, offset, max_words))
+
+    srt = out_dir / f"{stem}.srt"
+    ass = out_dir / f"{stem}.ass"
+    _write_srt(all_chunks, srt)
+    if lang == "en":
+        _write_ass(all_chunks, ass, w, h, font)
+    else:
+        _write_ass(all_chunks, ass, w, h, font, upper=False, spacing=0.0, size_scale=1.3)
+    return {"srt": srt, "ass": ass, "chunks": all_chunks}
 
 
 def generate(scene_wavs: list[tuple[Path, float]], out_dir: Path, stem: str,

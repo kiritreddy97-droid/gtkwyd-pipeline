@@ -1,0 +1,159 @@
+name: telugu
+
+# Telugu history-story channel: one ~10-minute narrated story per day plus one
+# ~60-second Short (the Short is written together with the story and queued, so
+# it airs the next day). Times are UTC, picked for Telugu viewers (IST = UTC+5:30):
+#   06:47 UTC = 12:17pm IST  -> Short
+#   13:47 UTC = 7:17pm IST   -> long story
+# Daily including weekends (Telugu audiences are strongest then). Clear of the
+# English channel's slots. Needs repo secrets GEMINI_API_KEY and YT_TE_TOKEN
+# (see AUTOMATION.md); without them a run logs a skip and exits cleanly.
+on:
+  schedule:
+    - cron: "47 6 * * *"
+    - cron: "47 13 * * *"
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "long (10-min story), short, or selftest (renders a bundled sample, no Gemini/YouTube needed)"
+        type: choice
+        options: [long, short, selftest]
+        default: long
+      dry_run:
+        description: "render only, do not upload"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gtkwyd-telugu
+  cancel-in-progress: false
+
+jobs:
+  telugu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Cache music library
+        id: cache-music
+        uses: actions/cache@v4
+        with:
+          path: assets/music
+          key: music-library-v1
+
+      - name: Download music library
+        if: steps.cache-music.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p assets/music
+          gh release download music-v1 --repo "${{ github.repository }}" \
+            --pattern "music-library.zip" --output music-library.zip
+          unzip -q music-library.zip -d assets/music
+          rm music-library.zip
+
+      - name: Determine this run's kind
+        id: kind
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "kind=${{ inputs.kind }}"       >> "$GITHUB_OUTPUT"
+            echo "dry=${{ inputs.dry_run }}"     >> "$GITHUB_OUTPUT"
+          else
+            case "${{ github.event.schedule }}" in
+              "47 6 * * *")  echo "kind=short" >> "$GITHUB_OUTPUT" ;;
+              *)             echo "kind=long"  >> "$GITHUB_OUTPUT" ;;
+            esac
+            echo "dry=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write config.toml
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+        run: |
+          sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
+              -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
+              config.example.toml > config.toml
+
+      - name: Write YouTube credentials (Telugu channel)
+        env:
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_TE_TOKEN: ${{ secrets.YT_TE_TOKEN }}
+        run: |
+          if [ -n "$YT_TE_TOKEN" ]; then
+            printf '%s' "$YT_CLIENT_SECRET" > client_secret.json
+            printf '%s' "$YT_TE_TOKEN" > youtube_token_te.json
+            python3 -c "
+          import json
+          for f in ('client_secret.json', 'youtube_token_te.json'):
+              t = open(f, encoding='utf-8-sig').read().strip()
+              json.loads(t)
+              open(f, 'w', encoding='utf-8').write(t)
+          print('Telugu channel credentials validated OK')
+          "
+          else
+            echo "YT_TE_TOKEN not set - videos will render but not upload"
+          fi
+
+      - name: Run
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ "${{ steps.kind.outputs.dry }}" = "true" ]; then
+            python telugu.py --kind "${{ steps.kind.outputs.kind }}" --dry-run
+          else
+            python telugu.py --kind "${{ steps.kind.outputs.kind }}"
+          fi
+
+      - name: Upload rendered file for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telugu-rendered
+          path: build/*/*.mp4
+          retention-days: 2
+          if-no-files-found: ignore
+
+      - name: Commit updated state
+        if: always()
+        run: |
+          git config user.name "gtkwyd-bot"
+          git config user.email "actions@users.noreply.github.com"
+          for p in history-telugu.jsonl topics_used.txt topics-telugu-history.txt \
+                   scripts/_generated-telugu scripts/telugu-shorts-queue scripts/published; do
+            git add "$p" 2>/dev/null || true
+          done
+          git status --short
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "telugu: ${{ steps.kind.outputs.kind }} run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "push rejected, fetching + rebasing (attempt $i) ..."
+            git fetch origin main
+            git checkout -- .
+            git rebase origin/main || { git rebase --abort; sleep $((i * 3)); continue; }
+            sleep 2
+          done
+          echo "::error::could not push updated state after retries"
+          exit 1

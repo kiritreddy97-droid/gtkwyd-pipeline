@@ -114,9 +114,17 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
 
     handle = cfg.get("social", {}).get("youtube_handle", "").strip()
 
-    onnx, _ = ensure_voice(DEFAULT_VOICE)
     wav = out.with_suffix(".wav")
-    tts_mod.synthesize(CTA_LINE, wav, onnx, length_scale=1.0, sentence_silence=0.15)
+    done = False
+    if cfg.get("voice", {}).get("engine", "piper") == "edge":
+        try:
+            tts_mod.synthesize_edge(CTA_LINE, wav, "en-US-AvaMultilingualNeural", rate_pct=-2)
+            done = True
+        except Exception:  # noqa: BLE001 - fall back to the offline voice
+            pass
+    if not done:
+        onnx, _ = ensure_voice(DEFAULT_VOICE)
+        tts_mod.synthesize(CTA_LINE, wav, onnx, length_scale=1.0, sentence_silence=0.15)
     duration = max(CTA_SECONDS, ffprobe_duration(wav) + 0.3)
 
     lines = ["MORE LIKE THIS", "on YouTube"]

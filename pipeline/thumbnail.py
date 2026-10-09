@@ -73,8 +73,45 @@ def _first_frame(video: Path, dest: Path) -> Path:
     return dest
 
 
+def _overlay_text_ass(bg, title: str, channel: str, workdir: Path, out_png: Path,
+                      accent: tuple) -> Path:
+    """Title + channel name via ffmpeg/libass, for scripts Pillow cannot shape
+    (Telugu). `bg` is the finished background image."""
+    import shutil
+
+    from .util import FFMPEG, run
+
+    bg_path = workdir / "_thumb_bg.png"
+    bg.save(bg_path)
+    for ttf in (ASSETS_DIR / "fonts").glob("*.ttf"):
+        shutil.copy(ttf, workdir / ttf.name)
+    n = len(title)
+    size = 100 if n <= 28 else 84 if n <= 48 else 70
+    ass = workdir / "_thumb.ass"
+    ass.write_text(
+        "[Script Info]\nScriptType: v4.00+\n"
+        f"PlayResX: {TW}\nPlayResY: {TH}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, "
+        "Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, "
+        "MarginV, Encoding\n"
+        f"Style: Title,Noto Sans Telugu,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+        "-1,0,0,0,100,100,0,0,1,7,2,1,50,50,50,1\n"
+        "Style: Chan,Noto Sans Telugu,30,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+        "-1,0,0,0,100,100,0,0,1,2,0,9,40,40,36,1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
+        "Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,0:00:10.00,Title,,0,0,0,,{title}\n"
+        f"Dialogue: 0,0:00:00.00,0:00:10.00,Chan,,0,0,0,,{channel}\n",
+        encoding="utf-8")
+    run([FFMPEG, "-y", "-i", bg_path.name, "-vf", f"ass={ass.name}:fontsdir=.",
+         "-frames:v", "1", str(Path(out_png).resolve())], cwd=workdir)
+    return out_png
+
+
 def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path,
-             tags: list[str] | None = None, show_badge: bool = True) -> Path:
+             tags: list[str] | None = None, show_badge: bool = True,
+             lang: str = "en") -> Path:
     """show_badge=False skips the fact-category badge (DID YOU KNOW, SPACE,
     ...) - used for Instagram-only story/reel content, which isn't a facts
     video and shouldn't claim to be one."""
@@ -106,8 +143,13 @@ def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path
     bg = Image.alpha_composite(bg.convert("RGBA"), ov).convert("RGB")
     draw = ImageDraw.Draw(bg)
 
+    if lang != "en":
+        accent = (245, 158, 11)  # warm amber for the history channel
     # left accent bar
     draw.rectangle([0, 0, 12, TH], fill=accent)
+
+    if lang != "en":
+        return _overlay_text_ass(bg, clean_title, channel, workdir, out_png, accent)
 
     # category badge (top-left)
     if show_badge:

@@ -44,6 +44,32 @@ def render_slide(text: str, w: int, h: int, dest: Path) -> Path:
     return dest
 
 
+def render_slide_ass(text: str, w: int, h: int, dest: Path,
+                     font: str = "Noto Sans Telugu") -> Path:
+    """Centred text card for scripts Pillow cannot shape (Telugu). ffmpeg's
+    libass has HarfBuzz, so conjunct letters come out right."""
+    workdir = dest.parent
+    for ttf in (ASSETS_DIR / "fonts").glob("*.ttf"):
+        shutil.copy(ttf, workdir / ttf.name)
+    ass = workdir / f"{dest.stem}.ass"
+    ass.write_text(
+        "[Script Info]\nScriptType: v4.00+\n"
+        f"PlayResX: {w}\nPlayResY: {h}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, "
+        "Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, "
+        "MarginV, Encoding\n"
+        f"Style: Card,{font},{round(h * 0.07)},&H00EEEEEE,&H00EEEEEE,&H00000000,&H00000000,"
+        f"-1,0,0,0,100,100,0,0,1,3,0,5,{round(w * 0.1)},{round(w * 0.1)},0,1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
+        "Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,0:00:10.00,Card,,0,0,0,,{text.replace(chr(10), chr(92) + 'N')}\n",
+        encoding="utf-8")
+    run([FFMPEG, "-y", "-f", "lavfi", "-i", f"color=c=0x0e1116:s={w}x{h}",
+         "-vf", f"ass={ass.name}:fontsdir=.", "-frames:v", "1", dest.name], cwd=workdir)
+    return dest
+
+
 def _segment(asset_path: Path, kind: str, seconds: float, out: Path,
              w: int, h: int, fps: int, ken_in: bool) -> Path:
     seconds = max(0.6, seconds)
@@ -86,13 +112,15 @@ def _concat_copy(parts: list[Path], out: Path, workdir: Path) -> Path:
 
 
 def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
-                workdir: Path, slide_text: str | None = None) -> tuple[Path, float]:
+                workdir: Path, slide_text: str | None = None,
+                lang: str = "en") -> tuple[Path, float]:
     w, h = dims(cfg)
     fps = int(cfg.get("project", {}).get("fps", 30))
     dur = ffprobe_duration(narration_wav) + _TAIL
 
-    if slide_text is not None:  # --no-stock
-        png = render_slide(slide_text, w, h, workdir / f"slide_{idx:02d}.png")
+    if slide_text is not None:  # --no-stock, and the outro card
+        slide_fn = render_slide if lang == "en" else render_slide_ass
+        png = slide_fn(slide_text, w, h, workdir / f"slide_{idx:02d}.png")
         segs = [_segment(png, "image", dur, workdir / f"seg_{idx:02d}_00.mp4",
                          w, h, fps, ken_in=(idx % 2 == 0))]
     else:
