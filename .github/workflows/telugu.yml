@@ -1,24 +1,31 @@
 name: telugu
 
-# Telugu history-story channel: one ~10-minute narrated story per day plus one
-# ~60-second Short (the Short is written together with the story and queued, so
-# it airs the next day). Times are UTC, picked for Telugu viewers (IST = UTC+5:30):
-#   06:47 UTC = 12:17pm IST  -> Short
-#   13:47 UTC = 7:17pm IST   -> long story
-# Daily including weekends (Telugu audiences are strongest then). Clear of the
-# English channel's slots. Needs repo secrets GEMINI_API_KEY and YT_TE_TOKEN
-# (see AUTOMATION.md); without them a run logs a skip and exits cleanly.
+# Telugu history-story channel, fully automatic, every day of the year:
+# a new ~10-minute narrated story, a new ~60-second Short, and a new thumbnail,
+# published from 12:00 PM US Eastern.
+#
+# GitHub cron is UTC-only and ignores daylight saving, so there are several
+# triggers around/after noon ET (16:07 UTC = 12:07 EDT in summer, 17:07 UTC =
+# 12:07 EST in winter, plus later backups in case GitHub drops or delays one).
+# The cheap `gate` job lets the first run at/after 12:00 ET do the work and
+# every later one exit in seconds, once today's story and Short are up.
+#
+# Needs repo secrets GEMINI_API_KEY and YT_TE_TOKEN (see AUTOMATION.md); without
+# them a run logs a skip and exits cleanly.
 on:
   schedule:
-    - cron: "47 6 * * *"
-    - cron: "47 13 * * *"
+    - cron: "7 16 * * *"
+    - cron: "7 17 * * *"
+    - cron: "37 18 * * *"
+    - cron: "7 20 * * *"
+    - cron: "7 23 * * *"
   workflow_dispatch:
     inputs:
       kind:
-        description: "long (10-min story), short, or selftest (renders a bundled sample, no Gemini/YouTube needed)"
+        description: "daily (story + Short), long, short, selftest (renders a bundled sample, no Gemini/YouTube needed), or gemini-check (lists which Gemini models your key can use)"
         type: choice
-        options: [long, short, selftest]
-        default: long
+        options: [daily, long, short, selftest, gemini-check]
+        default: daily
       dry_run:
         description: "render only, do not upload"
         type: boolean
@@ -32,9 +39,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  telugu:
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.gate.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - id: gate
+        run: python3 telugu_gate.py
+
+  telugu:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,11 +96,8 @@ jobs:
             echo "kind=${{ inputs.kind }}"       >> "$GITHUB_OUTPUT"
             echo "dry=${{ inputs.dry_run }}"     >> "$GITHUB_OUTPUT"
           else
-            case "${{ github.event.schedule }}" in
-              "47 6 * * *")  echo "kind=short" >> "$GITHUB_OUTPUT" ;;
-              *)             echo "kind=long"  >> "$GITHUB_OUTPUT" ;;
-            esac
-            echo "dry=false" >> "$GITHUB_OUTPUT"
+            echo "kind=daily" >> "$GITHUB_OUTPUT"
+            echo "dry=false"  >> "$GITHUB_OUTPUT"
           fi
 
       - name: Write config.toml
@@ -93,18 +111,15 @@ jobs:
 
       - name: Write YouTube credentials (Telugu channel)
         env:
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_TE_TOKEN: ${{ secrets.YT_TE_TOKEN }}
         run: |
           if [ -n "$YT_TE_TOKEN" ]; then
-            printf '%s' "$YT_CLIENT_SECRET" > client_secret.json
             printf '%s' "$YT_TE_TOKEN" > youtube_token_te.json
             python3 -c "
           import json
-          for f in ('client_secret.json', 'youtube_token_te.json'):
-              t = open(f, encoding='utf-8-sig').read().strip()
-              json.loads(t)
-              open(f, 'w', encoding='utf-8').write(t)
+          t = open('youtube_token_te.json', encoding='utf-8-sig').read().strip()
+          json.loads(t)
+          open('youtube_token_te.json', 'w', encoding='utf-8').write(t)
           print('Telugu channel credentials validated OK')
           "
           else

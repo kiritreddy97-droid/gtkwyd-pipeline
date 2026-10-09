@@ -225,7 +225,8 @@ def main() -> int:
     try:
         from pipeline import thumbnail
         thumbnail.generate(script.title, channel, first_asset, workdir, thumb,
-                           tags=script.tags, show_badge=not args.portrait, lang=lang)
+                           tags=script.tags, show_badge=not args.portrait, lang=lang,
+                           thumb_text=script.thumb_text)
     except Exception as e:
         print(f"[thumb]  skipped ({e})")
         thumb = None

@@ -46,21 +46,61 @@ def available() -> bool:
 _model_cache: dict[str, str] = {}
 
 
-def _discover_model() -> str:
-    """Pick a currently-available Flash model, in case the configured name was
-    retired (models get renamed/removed over time)."""
+class GeminiUnavailable(PipelineError):
+    """Gemini could not be reached / has no usable quota. Not the story's fault."""
+
+
+_NOT_TEXT = ("image", "tts", "live", "audio", "embed", "robotics", "computer",
+             "omni", "aqa", "veo", "imagen", "native", "thinking", "learnlm", "gemma")
+
+
+def _version(name: str) -> tuple:
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+    v = tuple(int(x) for x in m.group(1).split(".")) if m else (0,)
+    return v + (0,) * (3 - len(v))  # pad so 3.1 > 3 when compared as tuples
+
+
+def _candidates() -> list[str]:
+    """Text-generation Flash models available to this key, best first: stable
+    before preview, newest version first, plain flash before flash-lite."""
     r = requests.get(f"{GEMINI_BASE}/models", headers={"x-goog-api-key": api_key()},
                      params={"pageSize": 200}, timeout=30)
     r.raise_for_status()
     names = [m["name"].split("/", 1)[1] for m in r.json().get("models", [])
              if "generateContent" in m.get("supportedGenerationMethods", [])]
-    flash = sorted((n for n in names if "flash" in n and "lite" not in n
-                    and "preview" not in n and "exp" not in n and "image" not in n
-                    and "tts" not in n and "live" not in n and "thinking" not in n),
-                   reverse=True)
-    if not flash:
-        raise PipelineError("no usable Gemini Flash model found for this API key")
-    return flash[0]
+    flash = [n for n in names if "flash" in n and not any(x in n for x in _NOT_TEXT)]
+
+    def rank(n: str):
+        return (0 if re.search(r"preview|exp", n) is None else 1,
+                1 if "lite" in n else 0, tuple(-x for x in _version(n)), n)
+
+    return sorted(flash, key=rank)
+
+
+def _ping(model: str) -> int:
+    r = requests.post(
+        f"{GEMINI_BASE}/models/{model}:generateContent",
+        headers={"x-goog-api-key": api_key(), "Content-Type": "application/json"},
+        json={"contents": [{"parts": [{"text": "Reply with the single word OK."}]}],
+              "generationConfig": {"maxOutputTokens": 16}}, timeout=60)
+    return r.status_code
+
+
+def _discover_model() -> str:
+    """Find a model this key can actually use right now (names get retired, and
+    some models have no free-tier quota), by probing candidates with a tiny call."""
+    tried = []
+    for name in _candidates()[:8]:
+        code = _ping(name)
+        tried.append(f"{name}={code}")
+        if code == 200:
+            return name
+    raise GeminiUnavailable("no Gemini model is usable with this key (" + ", ".join(tried) + ")")
+
+
+def check() -> list[str]:
+    """Diagnostic: every candidate model and whether a tiny call to it works."""
+    return [f"{n}: HTTP {_ping(n)}" for n in _candidates()[:10]]
 
 
 def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
@@ -81,17 +121,20 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
         },
     }
     last = ""
+    tried_discovery = False
     for attempt in range(1, 6):
         r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
                           headers={"x-goog-api-key": api_key(),
                                    "Content-Type": "application/json"},
                           json=body, timeout=300)
-        if r.status_code == 404 and attempt == 1:
+        if r.status_code in (404, 429) and not tried_discovery:
+            tried_discovery = True  # configured model retired or has no quota: probe
             new = _discover_model()
-            print(f"[gemini] model {model!r} unavailable, using {new!r}")
-            _model_cache[model] = new
-            model = new
-            continue
+            if new != model:
+                print(f"[gemini] model {model!r} not usable (HTTP {r.status_code}), using {new!r}")
+                _model_cache[model] = new
+                model = new
+                continue
         if r.status_code == 400 and "thinking" in r.text.lower() \
                 and "thinkingConfig" in body["generationConfig"]:
             del body["generationConfig"]["thinkingConfig"]  # model doesn't take it
@@ -101,7 +144,8 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
             time.sleep(8 * attempt)
             continue
         if not r.ok:
-            raise PipelineError(f"Gemini error {r.status_code}: {r.text[:300]}")
+            exc = GeminiUnavailable if r.status_code in (401, 403, 404, 429) else PipelineError
+            raise exc(f"Gemini error {r.status_code}: {r.text[:300]}")
         data = r.json()
         try:
             cand = data["candidates"][0]
@@ -118,7 +162,7 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
         except json.JSONDecodeError as e:
             last = f"bad JSON: {e}"
             continue
-    raise PipelineError(f"Gemini call failed after retries: {last}")
+    raise GeminiUnavailable(f"Gemini call failed after retries: {last}")
 
 
 # --------------------------------------------------------------------------- #
@@ -138,11 +182,12 @@ _SCRIPT_SCHEMA = {
     "properties": {
         "title": {"type": "STRING"},
         "title_en": {"type": "STRING"},
+        "thumb_text": {"type": "STRING"},
         "description_hook": {"type": "STRING"},
         "tags": {"type": "ARRAY", "items": {"type": "STRING"}},
         "scenes": {"type": "ARRAY", "items": _SCENE},
     },
-    "required": ["title", "title_en", "description_hook", "tags", "scenes"],
+    "required": ["title", "title_en", "thumb_text", "description_hook", "tags", "scenes"],
 }
 _REVIEW_SCHEMA = {
     "type": "OBJECT",
@@ -197,6 +242,9 @@ LANGUAGE RULES:
   then Telugu and English search keywords people would type.
 - "title_en": a short English working title. "title": a gripping Telugu title
   under 70 characters. "description_hook": one intriguing Telugu sentence.
+- "thumb_text": 2 to 4 Telugu words printed huge on the thumbnail. It must
+  create curiosity or tension (a question, a shocking fact, a mystery) and
+  must NOT repeat the words of the title. It must be true to the story.
 """
 
 _LONG_SYSTEM = _RULES + """
@@ -251,6 +299,10 @@ def validate(data: dict, kind: str) -> list[str]:
     title = (data.get("title") or "").strip()
     if not (6 <= len(title) <= 95) or _telugu_ratio(title) < 0.6:
         problems.append("title missing, wrong length, or not Telugu")
+    if kind == "long":
+        tt = (data.get("thumb_text") or "").strip()
+        if not (1 <= len(tt.split()) <= 5) or _telugu_ratio(tt) < 0.6:
+            problems.append("thumb_text must be 2-4 Telugu words")
     for i, sc in enumerate(scenes, 1):
         narr = sc.get("narration", "")
         if _telugu_ratio(narr) < 0.85:
@@ -288,7 +340,10 @@ def to_markdown(data: dict) -> str:
     tags = [one_line(t).replace(",", " ") for t in data.get("tags", []) if str(t).strip()]
     lines = ["---", f"title: {one_line(data['title'])}",
              f"description_hook: {one_line(data.get('description_hook', ''))}",
-             f"tags: {', '.join(tags[:12])}", "lang: te", "---", ""]
+             f"tags: {', '.join(tags[:12])}", "lang: te"]
+    if one_line(data.get("thumb_text", "")):
+        lines.append(f"thumb_text: {one_line(data['thumb_text'])}")
+    lines += ["---", ""]
     for sc in data["scenes"]:
         qs = [one_line(q) for q in sc.get("queries", []) if str(q).strip()][:2]
         lines.append(f"## {one_line(sc['heading'])}")
@@ -304,28 +359,34 @@ def _generate(kind: str, prompt: str, model: str, attempts: int = 3,
     max_tokens = 24000 if kind == "long" else 8000
     feedback = ""
     last = "no attempt made"
+    content_failed = False  # the model answered but the script wasn't acceptable
     for n in range(1, attempts + 1):
         full = prompt + (f"\n\nFix these problems from the previous attempt: {feedback}"
                          if feedback else "")
         try:
             data = _call(system, full, _SCRIPT_SCHEMA, model, max_tokens)
+        except GeminiUnavailable:
+            raise  # key/quota/outage: retrying the same call in a loop won't help
         except PipelineError as e:
             last = str(e)
             feedback = ""
             continue
         problems = validate(data, kind)
         if problems:
+            content_failed = True
             last = feedback = "; ".join(problems)
             print(f"[telugu] attempt {n}: {last}")
             continue
         if self_review:
             ok, note = review(data, model)
             if not ok:
+                content_failed = True
                 last = feedback = f"fact-check/language review flagged: {note}"
                 print(f"[telugu] attempt {n}: {last}")
                 continue
         return data
-    raise PipelineError(f"no acceptable Telugu {kind} script after {attempts} tries: {last}")
+    exc = PipelineError if content_failed else GeminiUnavailable
+    raise exc(f"no acceptable Telugu {kind} script after {attempts} tries: {last}")
 
 
 def generate_long(topic: str, model: str = DEFAULT_MODEL, **kw) -> dict:

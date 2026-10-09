@@ -26,6 +26,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pipeline import ideas, writer_te
 from pipeline.util import BUILD_DIR, ROOT, load_config, slugify
@@ -69,9 +70,22 @@ def _record(entry: dict) -> None:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+ET = ZoneInfo("America/New_York")
+
+
+def _et_date(ts: str) -> str:
+    """Calendar date in US Eastern for a recorded timestamp (naive = UTC)."""
+    t = dt.datetime.fromisoformat(ts)
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=dt.timezone.utc)
+    return t.astimezone(ET).date().isoformat()
+
+
 def _uploaded_today(fmt: str) -> bool:
-    today = dt.date.today().isoformat()
-    return any(e.get("ts", "").startswith(today) and e.get("format") == fmt
+    """'Today' is the US Eastern calendar day, so the once-a-day guard lines up
+    with the 12pm ET schedule year-round (including across DST changes)."""
+    today = dt.datetime.now(ET).date().isoformat()
+    return any(e.get("ts") and _et_date(e["ts"]) == today and e.get("format") == fmt
                and e.get("status") == "uploaded" for e in _history())
 
 
@@ -159,7 +173,7 @@ def _finish(script_path: Path, fmt: str, tcfg: dict, dry_run: bool, entry: dict)
 
 
 def _new_entry(fmt: str, slug: str, title: str, title_en: str, topic: str, hook: str) -> dict:
-    return {"ts": dt.datetime.now().isoformat(timespec="seconds"), "slug": slug,
+    return {"ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "slug": slug,
             "title": title, "title_en": title_en, "topic": topic, "format": fmt,
             "lang": "te", "hook": hook}
 
@@ -179,13 +193,18 @@ def run_long(dry_run: bool) -> int:
     topic = ideas.next_topic(TOPICS)
     if not topic:
         log("[te-video] no story topics left and none could be generated"); return 0
-    ideas.mark_used(topic, TOPICS)
 
     try:
         data = writer_te.generate_long(topic, model)
+    except writer_te.GeminiUnavailable as e:
+        # key/quota/outage - not the story's fault, so the topic stays in the queue
+        log(f"[te-video] Gemini unavailable, topic kept for the next run: {e}")
+        return 1
     except Exception as e:  # noqa: BLE001
+        ideas.mark_used(topic, TOPICS)
         log(f"[te-video] writer failed for {topic!r}: {e}")
         return 0  # a content miss is "nothing this round", not a CI failure
+    ideas.mark_used(topic, TOPICS)
 
     slug = slugify(data.get("title_en") or topic)[:50] + "-" + uuid.uuid4().hex[:6]
     script_path = LONG_DIR / f"te-{slug}.md"
@@ -225,12 +244,16 @@ def run_short(dry_run: bool) -> int:
         topic = ideas.next_topic(TOPICS)
         if not topic:
             log("[te-short] nothing queued and no story topics left"); return 0
-        ideas.mark_used(topic, TOPICS)
         try:
             data = writer_te.generate_short(topic, None, model)
+        except writer_te.GeminiUnavailable as e:
+            log(f"[te-short] Gemini unavailable, topic kept for the next run: {e}")
+            return 1
         except Exception as e:  # noqa: BLE001
+            ideas.mark_used(topic, TOPICS)
             log(f"[te-short] writer failed for {topic!r}: {e}")
             return 0
+        ideas.mark_used(topic, TOPICS)
         script_path = SHORT_QUEUE / f"te-{slugify(data.get('title_en') or topic)[:50]}-{uuid.uuid4().hex[:6]}-short.md"
         script_path.write_text(writer_te.to_markdown(data), encoding="utf-8")
 
@@ -239,6 +262,15 @@ def run_short(dry_run: bool) -> int:
     entry = _new_entry("te-short", slugify(script_path.stem), s.title, "", topic,
                        s.description_hook)
     return _finish(script_path, "te-short", tcfg, dry_run, entry)
+
+
+def run_daily(dry_run: bool) -> int:
+    """The 12pm-ET job: today's story first (which also writes today's Short),
+    then that Short. Each half has its own once-a-day guard, so a re-run after
+    a partial failure only redoes what is missing."""
+    rc_long = run_long(dry_run)
+    rc_short = run_short(dry_run)
+    return rc_long or rc_short
 
 
 def run_selftest() -> int:
@@ -273,7 +305,7 @@ def status() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="telugu")
-    ap.add_argument("--kind", choices=("long", "short", "selftest"))
+    ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check"))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
@@ -283,8 +315,19 @@ def main() -> int:
     if not args.kind:
         ap.print_help()
         return 1
+    if args.kind == "gemini-check":
+        if not writer_te.available():
+            print("GEMINI_API_KEY is not set"); return 1
+        try:
+            for line in writer_te.check():
+                print(line)
+        except Exception as e:  # noqa: BLE001
+            print(f"model list failed: {e}"); return 1
+        return 0
     if args.kind == "selftest":
         return run_selftest()
+    if args.kind == "daily":
+        return run_daily(args.dry_run)
     return run_long(args.dry_run) if args.kind == "long" else run_short(args.dry_run)
 
 

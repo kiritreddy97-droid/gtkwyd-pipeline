@@ -3,6 +3,7 @@ title: జాతీయ పతాకాన్ని రూపొందించ�
 description_hook: మన త్రివర్ణ పతాకం వెనుక ఉన్న ఒక తెలుగు వ్యక్తి కథ.
 tags: history, india, flag, freedom struggle, తెలుగు చరిత్ర, పింగళి వెంకయ్య
 lang: te
+thumb_text: ఆ పేరు తెలుసా?
 ---
 
 ## ఒక ప్రశ్నతో మొదలు

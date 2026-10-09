@@ -56,7 +56,8 @@ def _require_libs():
         ) from e
 
 
-def get_service(interactive: bool = True, token_path: Path | None = None):
+def get_service(interactive: bool = True, token_path: Path | None = None,
+                client_secret_path: Path | None = None):
     """token_path selects which channel's login to use (default: the main
     channel's youtube_token.json). Each channel authorises once with its own
     Google account and keeps its own token file."""
@@ -87,7 +88,7 @@ def get_service(interactive: bool = True, token_path: Path | None = None):
 
         if not creds or not creds.valid:
             if interactive:
-                secret = _find_client_secret()
+                secret = Path(client_secret_path) if client_secret_path else _find_client_secret()
                 if not secret.exists():
                     raise PipelineError(
                         "No OAuth client file found in the project folder. Follow "
@@ -190,11 +191,15 @@ def upload(video: Path, *, title: str, description: str, tags: list[str],
 if __name__ == "__main__":
     if "--auth" in sys.argv:
         # --token youtube_token_te.json  authorises a second channel
-        tok = None
+        # --client client_secret_te.json uses a different Google Cloud project's
+        # OAuth client, so that channel gets its own daily upload quota
+        tok = cli = None
         if "--token" in sys.argv:
             tok = ROOT / sys.argv[sys.argv.index("--token") + 1]
-        svc = get_service(interactive=True, token_path=tok)
+        if "--client" in sys.argv:
+            cli = ROOT / sys.argv[sys.argv.index("--client") + 1]
+        svc = get_service(interactive=True, token_path=tok, client_secret_path=cli)
         print(f"Authorised. Channel: {channel_title(svc)}")
         print(f"Token saved to {tok or TOKEN}")
     else:
-        print("usage: python -m pipeline.youtube --auth [--token <file.json>]")
+        print("usage: python -m pipeline.youtube --auth [--token <file.json>] [--client <client_secret.json>]")

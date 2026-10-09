@@ -58,8 +58,10 @@ SLOTS = [
     ("reels.yml", 19, 26, _WEEKDAY, {"category": "soothing"}),
     ("reels.yml", 22, 47, _WEEKDAY, {"category": "fitness"}),
     ("fact-image.yml", 16, 52, _WEEKDAY, {}),
-    ("telugu.yml", 6, 47, _EVERYDAY, {"kind": "short"}),
-    ("telugu.yml", 13, 47, _EVERYDAY, {"kind": "long"}),
+    # 17:07 UTC = 12:07 EST / 1:07 EDT. The workflow has its own noon-ET cron
+    # triggers; this is only the local safety net, and telugu.py's
+    # once-a-day guards make a duplicate dispatch harmless.
+    ("telugu.yml", 17, 7, _EVERYDAY, {"kind": "daily"}),
 ]
 
 

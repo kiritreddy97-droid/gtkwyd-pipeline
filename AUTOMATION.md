@@ -204,10 +204,25 @@ banned/advice patterns, and beats the original by 8+ points is swapped in.
 
 ## Telugu history channel (`telugu.py`, `.github/workflows/telugu.yml`)
 
-A second, separate YouTube channel: **one ~10-minute narrated history story per
-day (19:17 IST) and one ~60-second Short (12:17 IST)**, in Telugu, with matching
-stock footage, word-timed Telugu captions and a Telugu thumbnail. The Short is
-written together with the day's story and queued, so it airs the next day.
+A second, separate YouTube channel: **every day of the year, from 12:00 PM US
+Eastern, one new ~10-minute narrated history story and one new ~60-second
+Short**, in Telugu, with matching stock footage, word-timed Telugu captions and
+a new thumbnail (a huge yellow 2-4 word curiosity hook that does not repeat the
+title). The Short is written together with the day's story.
+
+Scheduling: GitHub cron is UTC-only, so `telugu.yml` has triggers at 16:07,
+17:07, 18:37, 20:07 and 23:07 UTC. A cheap `gate` job (`telugu_gate.py`) lets
+the first run at/after 12:00 ET do the work (16:07 UTC in summer, 17:07 UTC in
+winter) and the rest exit in seconds once today's story and Short are up; the
+later ones are backups for when GitHub delays or drops a run.
+
+**YouTube upload quota** is per Google Cloud project (~6 uploads/day at the
+default 10,000 units; a video upload costs 1,600). The English channel already
+uses most of it, so give the Telugu channel its own project: create a second
+project in Google Cloud Console, enable the YouTube Data API v3, create an
+OAuth client (Desktop app), download it as `client_secret_te.json` into the
+repo folder (git-ignored), and authorise with
+`python -m pipeline.youtube --auth --token youtube_token_te.json --client client_secret_te.json`.
 
 - **Writer**: Google Gemini (free tier; the local 3B model can't write Telugu).
   Structured output, strict validation (Telugu script, 640-900 words / 12-20
@@ -233,10 +248,12 @@ gh secret set GEMINI_API_KEY --body "<your key>"
 Get-Content youtube_token_te.json -Raw | gh secret set YT_TE_TOKEN
 ```
 
-Check the whole Telugu path on GitHub's servers any time with **Actions ->
-telugu -> Run workflow -> kind = selftest** (renders a bundled sample, no key or
-login needed; download the video from the run's artifacts). Local status:
-`python telugu.py --status`.
+Check things on GitHub's servers any time with **Actions -> telugu -> Run
+workflow**: `selftest` renders a bundled sample (no key or login needed;
+download the video from the run's artifacts), `gemini-check` lists which Gemini
+models your key can actually use (model names get retired and some have no free
+quota; the writer probes and picks a working one automatically, and a Gemini
+outage leaves the story topic unused). Local status: `python telugu.py --status`.
 
 ## Monitoring
 

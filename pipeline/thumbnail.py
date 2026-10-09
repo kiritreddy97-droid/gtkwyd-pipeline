@@ -74,9 +74,12 @@ def _first_frame(video: Path, dest: Path) -> Path:
 
 
 def _overlay_text_ass(bg, title: str, channel: str, workdir: Path, out_png: Path,
-                      accent: tuple) -> Path:
-    """Title + channel name via ffmpeg/libass, for scripts Pillow cannot shape
-    (Telugu). `bg` is the finished background image."""
+                      accent: tuple, thumb_text: str = "") -> Path:
+    """Thumbnail text via ffmpeg/libass, for scripts Pillow cannot shape
+    (Telugu). `bg` is the finished background image. With thumb_text: a huge
+    yellow curiosity hook on the left half (the title is NOT repeated on the
+    image - it sits next to the thumbnail on YouTube anyway). Without it: the
+    title along the bottom."""
     import shutil
 
     from .util import FFMPEG, run
@@ -85,25 +88,34 @@ def _overlay_text_ass(bg, title: str, channel: str, workdir: Path, out_png: Path
     bg.save(bg_path)
     for ttf in (ASSETS_DIR / "fonts").glob("*.ttf"):
         shutil.copy(ttf, workdir / ttf.name)
-    n = len(title)
-    size = 100 if n <= 28 else 84 if n <= 48 else 70
+    hdr = ("[Script Info]\nScriptType: v4.00+\n"
+           f"PlayResX: {TW}\nPlayResY: {TH}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n"
+           "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
+           "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, "
+           "Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, "
+           "MarginV, Encoding\n")
+    chan = ("Style: Chan,Noto Sans Telugu,30,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+            "-1,0,0,0,100,100,0,0,1,2,0,9,40,40,36,1\n")
+    ev = "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    if thumb_text:
+        n = len(thumb_text.split())
+        size = 168 if n <= 2 else 140 if n == 3 else 118
+        # BGR yellow; thick black outline + shadow keeps it readable at feed size
+        styles = (f"Style: Big,Noto Sans Telugu,{size},&H0000E5FF,&H0000E5FF,&H00000000,&H00000000,"
+                  "-1,0,0,0,100,100,0,0,1,11,4,4,56,640,0,1\n")
+        body = (f"Dialogue: 0,0:00:00.00,0:00:10.00,Big,,0,0,0,,{thumb_text}\n"
+                f"Dialogue: 0,0:00:00.00,0:00:10.00,Chan,,0,0,0,,{channel}\n")
+        text = hdr + styles + chan + ev + body
+    else:
+        n = len(title)
+        size = 100 if n <= 28 else 84 if n <= 48 else 70
+        styles = (f"Style: Title,Noto Sans Telugu,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+                  "-1,0,0,0,100,100,0,0,1,7,2,1,50,50,50,1\n")
+        body = (f"Dialogue: 0,0:00:00.00,0:00:10.00,Title,,0,0,0,,{title}\n"
+                f"Dialogue: 0,0:00:00.00,0:00:10.00,Chan,,0,0,0,,{channel}\n")
+        text = hdr + styles + chan + ev + body
     ass = workdir / "_thumb.ass"
-    ass.write_text(
-        "[Script Info]\nScriptType: v4.00+\n"
-        f"PlayResX: {TW}\nPlayResY: {TH}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n"
-        "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, "
-        "Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, "
-        "MarginV, Encoding\n"
-        f"Style: Title,Noto Sans Telugu,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
-        "-1,0,0,0,100,100,0,0,1,7,2,1,50,50,50,1\n"
-        "Style: Chan,Noto Sans Telugu,30,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
-        "-1,0,0,0,100,100,0,0,1,2,0,9,40,40,36,1\n\n"
-        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
-        "Effect, Text\n"
-        f"Dialogue: 0,0:00:00.00,0:00:10.00,Title,,0,0,0,,{title}\n"
-        f"Dialogue: 0,0:00:00.00,0:00:10.00,Chan,,0,0,0,,{channel}\n",
-        encoding="utf-8")
+    ass.write_text(text, encoding="utf-8")
     run([FFMPEG, "-y", "-i", bg_path.name, "-vf", f"ass={ass.name}:fontsdir=.",
          "-frames:v", "1", str(Path(out_png).resolve())], cwd=workdir)
     return out_png
@@ -111,7 +123,7 @@ def _overlay_text_ass(bg, title: str, channel: str, workdir: Path, out_png: Path
 
 def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path,
              tags: list[str] | None = None, show_badge: bool = True,
-             lang: str = "en") -> Path:
+             lang: str = "en", thumb_text: str = "") -> Path:
     """show_badge=False skips the fact-category badge (DID YOU KNOW, SPACE,
     ...) - used for Instagram-only story/reel content, which isn't a facts
     video and shouldn't claim to be one."""
@@ -149,7 +161,20 @@ def generate(title: str, channel: str, first_asset, workdir: Path, out_png: Path
     draw.rectangle([0, 0, 12, TH], fill=accent)
 
     if lang != "en":
-        return _overlay_text_ass(bg, clean_title, channel, workdir, out_png, accent)
+        from PIL import ImageEnhance
+        # punchier look for feed size: richer colour + contrast, and a dark
+        # wash over the left half where the big text sits
+        bg = ImageEnhance.Contrast(ImageEnhance.Color(bg).enhance(1.35)).enhance(1.12)
+        if thumb_text:
+            wash = Image.new("RGBA", (TW, TH), (0, 0, 0, 0))
+            wd = ImageDraw.Draw(wash)
+            for x in range(int(TW * 0.62)):
+                a = int(190 * (1 - x / (TW * 0.62)) ** 1.3)
+                wd.line([(x, 0), (x, TH)], fill=(0, 0, 0, a))
+            bg = Image.alpha_composite(bg.convert("RGBA"), wash).convert("RGB")
+            ImageDraw.Draw(bg).rectangle([0, 0, 12, TH], fill=accent)
+        return _overlay_text_ass(bg, clean_title, channel, workdir, out_png, accent,
+                                 thumb_text)
 
     # category badge (top-left)
     if show_badge:
