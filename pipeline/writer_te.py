@@ -92,11 +92,14 @@ def _ping(model: str) -> int | str:
     return r.status_code
 
 
+_overloaded: set[str] = set()  # models that returned 5xx this process; skip them
+
+
 def _discover_model() -> str:
     """Find a model this key can actually use right now (names get retired, and
     some models have no free-tier quota), by probing candidates with a tiny call."""
     tried = []
-    for name in _candidates()[:8]:
+    for name in [n for n in _candidates() if n not in _overloaded][:8]:
         code = _ping(name)
         tried.append(f"{name}={code}")
         if code == 200:
@@ -147,6 +150,18 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
             continue
         if r.status_code in (429, 500, 502, 503, 504):
             last = f"{r.status_code} {r.text[:200]}"
+            if r.status_code in (500, 502, 503, 504) and attempt >= 2:
+                # this model is overloaded right now: move to another working one
+                _overloaded.add(model)
+                try:
+                    new = _discover_model()
+                except GeminiUnavailable:
+                    new = model
+                if new != model:
+                    print(f"[gemini] {model!r} overloaded (HTTP {r.status_code}), switching to {new!r}")
+                    _model_cache[model] = new
+                    model = new
+                    continue
             time.sleep(8 * attempt)
             continue
         if not r.ok:
@@ -254,12 +269,15 @@ LANGUAGE RULES:
 """
 
 _LONG_SYSTEM = _RULES + """
-FORMAT: a ~10-minute narrated story. 16 scenes, each scene's narration 40 to
-52 Telugu words, for a TOTAL of 720 to 820 words. Structure: open with the most
-gripping moment or an irresistible question; set the scene; build the
-tension step by step; reach the turning point; resolve it; end with what this
-story teaches or why it still matters. Each scene must move the story
-forward - no filler, no repetition.
+FORMAT: a ~10-minute narrated story. 16 scenes, each scene's narration 46 to
+54 Telugu words (about 5 to 6 sentences of 8-10 words), for a TOTAL of 740 to
+820 words. Telugu words are long, so this is a LOT of text: you must write it
+all out. Count the words: if your total is under 740, lengthen the scenes with
+concrete detail (what people saw, heard, felt; the setting; the stakes) before
+you answer. Structure: open with the most gripping moment or an irresistible
+question; set the scene; build the tension step by step; reach the turning
+point; resolve it; end with what this story teaches or why it still matters.
+Each scene must move the story forward - no filler, no repetition.
 """
 
 _SHORT_SYSTEM = _RULES + """
@@ -359,6 +377,25 @@ def to_markdown(data: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _total_words(data: dict) -> int:
+    return sum(_words(sc.get("narration", "")) for sc in data.get("scenes", []))
+
+
+def _expand(data: dict, model: str) -> dict:
+    """Rewrite a too-short long script as the same story with more detail."""
+    n = len(data.get("scenes", []))
+    prompt = (
+        f"Below is a Telugu story script (JSON) that is only {_total_words(data)} words "
+        f"long. Rewrite it as the SAME story with the SAME title, tags, scene order, "
+        f"headings and queries, but EXPAND every scene's narration so the total reaches "
+        f"760 to 820 words (about 48 to 52 words in each of the {n} scenes). Expand only "
+        f"with description of the setting, what people saw, heard and felt, and the "
+        f"reasoning that links events. Do NOT add any new fact, name, date, number or "
+        f"quotation that is not already in the script. Return the full JSON.\n\n"
+        + json.dumps(data, ensure_ascii=False))
+    return _call(_LONG_SYSTEM, prompt, _SCRIPT_SCHEMA, model, 24000)
+
+
 def _generate(kind: str, prompt: str, model: str, attempts: int = 3,
               self_review: bool = True) -> dict:
     system = _LONG_SYSTEM if kind == "long" else _SHORT_SYSTEM
@@ -378,6 +415,23 @@ def _generate(kind: str, prompt: str, model: str, attempts: int = 3,
             feedback = ""
             continue
         problems = validate(data, kind)
+        if problems and kind == "long":
+            # The model often undershoots the length. If the only problem is
+            # "too few words", expand the same story rather than start over.
+            for _ in range(2):
+                total = _total_words(data)
+                if not (300 <= total < LONG_WORDS[0]) or any("words" not in p for p in problems):
+                    break
+                print(f"[telugu] script has {total} words, expanding ...")
+                try:
+                    data = _expand(data, model)
+                except GeminiUnavailable:
+                    raise
+                except PipelineError:
+                    break
+                problems = validate(data, kind)
+                if not problems:
+                    break
         if problems:
             content_failed = True
             last = feedback = "; ".join(problems)
