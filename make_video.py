@@ -296,7 +296,8 @@ def main() -> int:
 
     print("[render] final mux ...")
     out_mp4 = BUILD_DIR / slug / f"{slug}.mp4"
-    total = assemble.finalize(scene_finals, music_path, ass_path, cfg, workdir, out_mp4)
+    total = assemble.finalize(scene_finals, music_path, ass_path, cfg, workdir, out_mp4,
+                              gentle=used_gemini)
 
     # collateral
     scene_starts = [sum(scene_durations[:i]) for i in range(len(scene_durations))]

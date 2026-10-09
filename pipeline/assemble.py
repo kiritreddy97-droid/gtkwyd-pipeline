@@ -147,7 +147,9 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
 
 
 def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
-             cfg: dict, workdir: Path, out_mp4: Path) -> float:
+             cfg: dict, workdir: Path, out_mp4: Path, gentle: bool = False) -> float:
+    """gentle=True keeps the narration's natural loud/soft expression (expressive
+    AI voices): no frame-by-frame level evening, and a wider loudness range."""
     w, h = dims(cfg)
     fps = int(cfg.get("project", {}).get("fps", 30))
     mv = float(cfg.get("music", {}).get("volume", 0.12))
@@ -180,18 +182,20 @@ def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
     if music is not None and Path(music).exists():
         cmd += ["-stream_loop", "-1", "-i", str(Path(music).resolve())]
         fade_st = max(0.1, total - 2.5)
-        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.65:m=6:s=8,"
-                    "asplit=2[voc][vsc]")
+        leveler = "" if gentle else "dynaudnorm=p=0.65:m=6:s=8,"
+        filt.append(f"[0:a]aresample=48000,{leveler}asplit=2[voc][vsc]")
         filt.append(
             f"[1:a]aresample=48000,highpass=f=80,volume={mv:.3f},"
             f"afade=t=in:st=0:d=1.5,afade=t=out:st={fade_st:.2f}:d=2.0[bed0]")
         filt.append("[bed0][vsc]sidechaincompress=threshold=0.09:ratio=2.5:"
                     "attack=25:release=500:makeup=1[bed]")
+        lra = 20 if gentle else 13
         filt.append("[voc][bed]amix=inputs=2:duration=first:weights=1.0 1.4:"
-                    "dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA=13[a]")
+                    f"dropout_transition=0,loudnorm=I=-14:TP=-1.5:LRA={lra}[a]")
     else:
-        filt.append("[0:a]aresample=48000,dynaudnorm=p=0.55:m=10:s=8,"
-                    "loudnorm=I=-14:TP=-1.5:LRA=11[a]")
+        leveler = "" if gentle else "dynaudnorm=p=0.55:m=10:s=8,"
+        lra = 20 if gentle else 11
+        filt.append(f"[0:a]aresample=48000,{leveler}loudnorm=I=-14:TP=-1.5:LRA={lra}[a]")
     alabel = "[a]"
 
     cmd += ["-filter_complex", ";".join(filt),

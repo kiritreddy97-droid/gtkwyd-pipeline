@@ -266,7 +266,13 @@ LANGUAGE RULES:
   period clothing, architecture and weapons, the light and mood. Historically
   plausible for the exact place and era; no modern objects; no text or writing;
   wide cinematic composition with the subject near the centre. The two prompts
-  of a scene show two different moments or angles of it.
+  of a scene show two different moments or angles of it. ALWAYS state the
+  people's ethnicity and region (for example "South Indian Telugu men with dark
+  skin and moustaches in white dhotis", "Persian merchants", "Roman soldiers"):
+  the image model otherwise draws Europeans. NEVER ask for flags, banners with
+  emblems, coats of arms, maps with labels, signs, books with readable pages or
+  any written symbols (the model draws them wrong); show such things only as
+  distant, blurred, unspecific shapes, or leave them out.
 - "tags": 8-12 items, the first four being English history keywords related to
   the story (for example "history", "ancient india", "empire", "kingdom"),
   then Telugu and English search keywords people would type.

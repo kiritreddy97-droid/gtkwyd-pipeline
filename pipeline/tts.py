@@ -106,6 +106,23 @@ def approx_word_timings(wav: Path, text: str) -> list[WordTiming]:
     return out
 
 
+def level_match(wav: Path, target_lufs: float = -20.0) -> None:
+    """Give a narration segment a consistent overall loudness with ONE gain change
+    (no compression), so separate TTS calls match each other while each keeps its
+    own natural loud/soft expression."""
+    import re
+
+    proc = run([FFMPEG, "-hide_banner", "-nostats", "-i", wav, "-af", "ebur128=peak=true",
+                "-f", "null", "-"])
+    m = re.findall(r"I:\s+(-?[\d.]+) LUFS", proc.stderr)
+    if not m:
+        return
+    gain = max(-12.0, min(12.0, target_lufs - float(m[-1])))
+    tmp = wav.with_name(wav.stem + "_lm.wav")
+    run([FFMPEG, "-y", "-i", wav, "-af", f"volume={gain:.2f}dB,alimiter=limit=0.95", tmp])
+    tmp.replace(wav)
+
+
 def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
                       retries: int = 4, timings: bool = True) -> list[WordTiming] | None:
     """Narrate with Gemini TTS (expressive, directable). Returns estimated word
@@ -120,6 +137,7 @@ def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
     for attempt in range(1, retries + 1):
         try:
             genmedia.gemini_tts(text, out_wav, voice, style)
+            level_match(out_wav)
             time.sleep(1.5)  # stay polite with the free tier's request rate
             return approx_word_timings(out_wav, text) if timings else None
         except Exception as e:  # noqa: BLE001
