@@ -23,7 +23,7 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 
 # Telugu narration runs ~76 words/minute with the neural voices (long compound
 # words), so these word counts target ~10 minutes and ~60 seconds.
-LONG_WORDS = (640, 900)
+LONG_WORDS = (740, 1100)  # the first real story ran ~84 wpm: ~830 words = 10 min
 SHORT_WORDS = (58, 95)
 LONG_SCENES = (12, 20)
 SHORT_SCENES = (3, 6)
@@ -117,6 +117,7 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
     """One structured-JSON generateContent call with retry/backoff."""
     if not available():
         raise PipelineError("GEMINI_API_KEY is not set")
+    requested = model
     model = _model_cache.get(model, model)
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
@@ -141,7 +142,7 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
             new = _discover_model()
             if new != model:
                 print(f"[gemini] model {model!r} not usable (HTTP {r.status_code}), using {new!r}")
-                _model_cache[model] = new
+                _model_cache[requested] = new
                 model = new
                 continue
         if r.status_code == 400 and "thinking" in r.text.lower() \
@@ -159,7 +160,7 @@ def _call(system: str, prompt: str, schema: dict, model: str, max_tokens: int,
                     new = model
                 if new != model:
                     print(f"[gemini] {model!r} overloaded (HTTP {r.status_code}), switching to {new!r}")
-                    _model_cache[model] = new
+                    _model_cache[requested] = new  # remember, so later calls start here
                     model = new
                     continue
             time.sleep(8 * attempt)
@@ -269,10 +270,10 @@ LANGUAGE RULES:
 """
 
 _LONG_SYSTEM = _RULES + """
-FORMAT: a ~10-minute narrated story. 16 scenes, each scene's narration 46 to
-54 Telugu words (about 5 to 6 sentences of 8-10 words), for a TOTAL of 740 to
-820 words. Telugu words are long, so this is a LOT of text: you must write it
-all out. Count the words: if your total is under 740, lengthen the scenes with
+FORMAT: a ~10-minute narrated story. 16 scenes, each scene's narration 55 to
+60 Telugu words (about 6 to 7 sentences of 8-10 words), for a TOTAL of 880 to
+960 words. Telugu words are long, so this is a LOT of text: you must write it
+all out. Count the words: if your total is under 860, lengthen the scenes with
 concrete detail (what people saw, heard, felt; the setting; the stakes) before
 you answer. Structure: open with the most gripping moment or an irresistible
 question; set the scene; build the tension step by step; reach the turning
@@ -388,7 +389,7 @@ def _expand(data: dict, model: str) -> dict:
         f"Below is a Telugu story script (JSON) that is only {_total_words(data)} words "
         f"long. Rewrite it as the SAME story with the SAME title, tags, scene order, "
         f"headings and queries, but EXPAND every scene's narration so the total reaches "
-        f"760 to 820 words (about 48 to 52 words in each of the {n} scenes). Expand only "
+        f"880 to 960 words (about 55 to 60 words in each of the {n} scenes). Expand only "
         f"with description of the setting, what people saw, heard and felt, and the "
         f"reasoning that links events. Do NOT add any new fact, name, date, number or "
         f"quotation that is not already in the script. Return the full JSON.\n\n"
