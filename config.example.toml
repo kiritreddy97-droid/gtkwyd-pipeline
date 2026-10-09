@@ -18,7 +18,11 @@ pixabay_key = ""
 # gives exact word timings so captions need no speech recognition). If Edge is
 # unreachable for a render, English falls back to the Piper settings below.
 # "piper" = offline Piper voices only.
-engine = "edge"
+engine = "gemini"
+# "gemini" = Google's expressive, directable AI voice FIRST (free, GEMINI_API_KEY;
+# a style per content type: documentary, punchy Short, calm soothing reel, coach,
+# storyteller). If Gemini can't be used for a video it falls back to "edge" and
+# then Piper automatically. English captions then come from speech recognition.
 # Narration pace for the Edge voices, in percent (-3 = slightly calmer than
 # default; a small random jitter is added per render). Telugu storytelling
 # is set a little slower.

@@ -115,6 +115,7 @@ def _generate_and_render(category: str, topics_path: Path, model: str | None,
         ideas.mark_used(theme, topics_path)
         return {"ok": False}
     ideas.mark_used(theme, topics_path)
+    md = writer.with_style(md, category)
 
     from pipeline.script_parser import parse_script_text
     script = parse_script_text(md, fallback_title=theme)

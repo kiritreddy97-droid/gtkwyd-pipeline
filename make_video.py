@@ -30,6 +30,17 @@ OUTRO_SPOKEN = ("For more information and to stay updated, please like, "
 OUTRO_DISPLAY = "LIKE, SHARE & SUBSCRIBE for more like this"
 OUTRO_SPOKEN_TE = ("ఇలాంటి మరిన్ని చరిత్ర కథల కోసం, లైక్ చేయండి, షేర్ చేయండి, "
                    "మరియు సబ్‌స్క్రైబ్ చేయండి.")
+GEMINI_EN_VOICES = ["Charon", "Orus", "Fenrir", "Puck", "Kore", "Aoede", "Leda", "Zephyr"]
+_EN_COMMON = (" Sound like a real person talking to a friend, never like reading a script: "
+              "vary pace and pitch with the meaning, lean on key words, take small natural "
+              "pauses, rise on questions. Keep one consistent voice throughout.")
+EN_STYLE_VIDEO = ("Narrate like a warm, curious documentary storyteller who is genuinely "
+                  "fascinated by the subject." + _EN_COMMON)
+EN_STYLE_SHORT = ("Narrate like an energetic, engaging creator hooking viewers in the first "
+                  "second: punchy, quick, with real excitement and a clear emphasis on the "
+                  "surprising part." + _EN_COMMON)
+EN_STYLE_REEL = ("Narrate like a friendly, expressive storyteller speaking to camera for a "
+                 "short vertical video." + _EN_COMMON)
 DEFAULT_TE_STYLE = (
     "Narrate in natural, warm, conversational Telugu, like a gifted storyteller telling a "
     "true story to family around a fire: expressive and human, never like reading a passage. "
@@ -96,8 +107,11 @@ def main() -> int:
 
     lang = script.lang
     vcfg = cfg.get("voice", {})
-    # Telugu always uses the Edge neural voices (Piper has no usable Telugu voice).
-    engine = vcfg.get("engine", "piper") if lang == "en" else "edge"
+    # Telugu always uses the Edge neural voices as the fallback (Piper has no
+    # usable Telugu voice). engine = "gemini" means: expressive Gemini voice first,
+    # Edge as the automatic fallback.
+    engine_cfg = vcfg.get("engine", "piper")
+    engine = ("edge" if engine_cfg == "gemini" else engine_cfg) if lang == "en" else "edge"
     voice_name = pick_voice(script.voice, rotate=bool(vcfg.get("rotate", True)),
                             fallback=vcfg.get("model", DEFAULT_VOICE),
                             engine=engine, lang=lang)
@@ -149,12 +163,23 @@ def main() -> int:
     seg_timings = None
     used_gemini = False
     tcfg = cfg.get("telugu", {})
-    if lang != "en" and tcfg.get("voice_engine", "edge") == "gemini" and writer_te.available():
-        gem_voice = tcfg.get("gemini_voice", "Charon")
-        gem_style = tcfg.get("gemini_style", DEFAULT_TE_STYLE)
+    want_gemini = (tcfg.get("voice_engine", "edge") == "gemini") if lang != "en" \
+        else (engine_cfg == "gemini")
+    if want_gemini and writer_te.available():
+        if lang != "en":
+            gem_voice = tcfg.get("gemini_voice", "Charon")
+            gem_style = script.style or tcfg.get("gemini_style", DEFAULT_TE_STYLE)
+        else:
+            gem_voice = script.voice if script.voice in GEMINI_EN_VOICES \
+                else random.choice(GEMINI_EN_VOICES)
+            gem_style = script.style or (EN_STYLE_SHORT if args.short
+                                         else EN_STYLE_REEL if args.portrait else EN_STYLE_VIDEO)
         try:
             print(f"[voice]  Gemini expressive voice '{gem_voice}' for {len(seg_texts)} segments ...")
-            seg_timings = [tts.synthesize_gemini(t, w, gem_voice, gem_style)
+            # Telugu: estimate word timings from the audio's pauses. English: leave
+            # them out so the (accurate) speech-recognition caption path is used.
+            seg_timings = [tts.synthesize_gemini(t, w, gem_voice, gem_style,
+                                                 timings=(lang != "en"))
                            for t, w in zip(seg_texts, seg_wavs)]
             used_gemini = True
         except PipelineError as e:

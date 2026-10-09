@@ -107,21 +107,29 @@ def approx_word_timings(wav: Path, text: str) -> list[WordTiming]:
 
 
 def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
-                      retries: int = 4) -> list[WordTiming]:
+                      retries: int = 4, timings: bool = True) -> list[WordTiming] | None:
     """Narrate with Gemini TTS (expressive, directable). Returns estimated word
-    timings. Raises PipelineError after repeated failures."""
+    timings (or None when timings=False, e.g. English, where speech recognition
+    gives exact ones). Raises PipelineError after repeated failures."""
     from . import genmedia
 
+    global _gemini_blocked_until
+    if time.time() < _gemini_blocked_until:
+        raise PipelineError("gemini tts skipped (failed recently in this run)")
     last: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
             genmedia.gemini_tts(text, out_wav, voice, style)
             time.sleep(1.5)  # stay polite with the free tier's request rate
-            return approx_word_timings(out_wav, text)
+            return approx_word_timings(out_wav, text) if timings else None
         except Exception as e:  # noqa: BLE001
             last = e
             time.sleep(10 * attempt)
+    _gemini_blocked_until = time.time() + 1800  # don't burn minutes retrying every segment
     raise PipelineError(f"gemini tts failed after {retries} tries: {last}")
+
+
+_gemini_blocked_until = 0.0
 
 
 _ESPEAK_DATA = ROOT / "piper" / "espeak-ng-data"

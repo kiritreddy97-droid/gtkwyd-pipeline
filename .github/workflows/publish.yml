@@ -187,6 +187,8 @@ jobs:
           # staged. Without this secret set, the check is skipped (logged),
           # not a hard failure.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Expressive Gemini narration voice (falls back to Edge if unset/failing)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python auto.py --slot "${{ steps.slot.outputs.name }}" \
                          --format "${{ steps.slot.outputs.format }}" \

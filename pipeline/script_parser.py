@@ -56,6 +56,7 @@ class Script:
     scenes: list[Scene]
     lang: str = "en"
     thumb_text: str = ""
+    style: str = ""  # optional narration-delivery direction for the expressive voice
 
 
 def _parse_frontmatter(block: str) -> dict:
@@ -140,4 +141,5 @@ def parse_script_text(text: str, fallback_title: str = "Untitled") -> Script:
         scenes=scenes,
         lang=(meta.get("lang") or "en").strip().lower(),
         thumb_text=(meta.get("thumb_text") or "").strip(),
+        style=(meta.get("style") or "").strip(),
     )

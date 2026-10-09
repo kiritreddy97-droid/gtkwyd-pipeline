@@ -195,6 +195,29 @@ _SYSTEM_SHORT = textwrap.dedent(f"""\
     """)
 
 
+_VOICE_TAIL = (" Sound like a real person, never like reading a script: vary pace and pitch "
+               "with the meaning, take small natural pauses, lean on key words. Keep one "
+               "consistent voice throughout.")
+VOICE_STYLES = {
+    "satisfying": "Narrate in a calm, soft, smiling voice, slow and gentle, like a soothing "
+                  "ASMR-style guide enjoying the moment." + _VOICE_TAIL,
+    "soothing": "Narrate very slowly and gently in a warm, low, reassuring voice, like a "
+                "meditation guide helping someone unwind." + _VOICE_TAIL,
+    "fitness": "Narrate like an upbeat, encouraging coach: clear, friendly, steady and "
+               "energetic without shouting." + _VOICE_TAIL,
+    "story": "Narrate like a gripping storyteller: draw the listener in, slow down and lower "
+             "the voice for suspense, speed up for action, and land the ending." + _VOICE_TAIL,
+}
+
+
+def with_style(md: str, category: str) -> str:
+    """Add a `style:` line (voice-delivery direction) to a script's frontmatter."""
+    style = VOICE_STYLES.get(category)
+    if not style or "\nstyle:" in md[:600]:
+        return md
+    return md.replace("---\n", f"---\nstyle: {style}\n", 1)
+
+
 def _ollama_up() -> bool:
     try:
         return requests.get(f"{OLLAMA_URL}/api/tags", timeout=3).ok

@@ -93,6 +93,7 @@ def _generate_and_render(model: str | None, acfg: dict, slot: str) -> dict | Non
         ideas.mark_used(theme, TOPICS)
         return {"ok": False}
     ideas.mark_used(theme, TOPICS)
+    md = writer.with_style(md, "story")
 
     from pipeline.script_parser import parse_script_text
     script = parse_script_text(md, fallback_title=theme)

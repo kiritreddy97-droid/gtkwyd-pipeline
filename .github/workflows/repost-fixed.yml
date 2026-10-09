@@ -111,6 +111,7 @@ jobs:
           # Without this secret set, the check is skipped (logged), not a
           # hard failure.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           args=""
           if [ -n "${{ inputs.only }}" ]; then args="$args --only ${{ inputs.only }}"; fi

@@ -116,7 +116,19 @@ def _build_cta_clip(cfg: dict, out: Path) -> None:
 
     wav = out.with_suffix(".wav")
     done = False
-    if cfg.get("voice", {}).get("engine", "piper") == "edge":
+    engine = cfg.get("voice", {}).get("engine", "piper")
+    if engine == "gemini":
+        from . import writer_te
+        if writer_te.available():
+            try:
+                tts_mod.synthesize_gemini(
+                    CTA_LINE, wav, "Kore",
+                    "Say this warmly and naturally, like a friendly creator signing off.",
+                    retries=2, timings=False)
+                done = True
+            except Exception:  # noqa: BLE001 - fall through to Edge, then Piper
+                pass
+    if not done and engine in ("edge", "gemini"):
         try:
             tts_mod.synthesize_edge(CTA_LINE, wav, "en-US-AvaMultilingualNeural", rate_pct=-2)
             done = True
