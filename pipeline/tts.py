@@ -124,7 +124,8 @@ def level_match(wav: Path, target_lufs: float = -20.0) -> None:
 
 
 def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
-                      retries: int = 4, timings: bool = True) -> list[WordTiming] | None:
+                      retries: int = 4, timings: bool = True,
+                      mode: str = "say") -> list[WordTiming] | None:
     """Narrate with Gemini TTS (expressive, directable). Returns estimated word
     timings (or None when timings=False, e.g. English, where speech recognition
     gives exact ones). Raises PipelineError after repeated failures."""
@@ -134,9 +135,17 @@ def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
     if time.time() < _gemini_blocked_until:
         raise PipelineError("gemini tts skipped (failed recently in this run)")
     last: Exception | None = None
+    import re
+
+    telugu = bool(re.search(r"[ఀ-౿]", text))
     for attempt in range(1, retries + 1):
         try:
-            genmedia.gemini_tts(text, out_wav, voice, style)
+            genmedia.gemini_tts(text, out_wav, voice, style, mode=mode)
+            from .util import ffprobe_duration
+            limit = 2.5 + len(text.split()) * (1.5 if telugu else 0.9)
+            if ffprobe_duration(out_wav) > limit:
+                # far longer than the text needs: the model read the directions aloud
+                raise PipelineError("clip is much longer than its text (style read aloud?)")
             level_match(out_wav)
             time.sleep(1.5)  # stay polite with the free tier's request rate
             return approx_word_timings(out_wav, text) if timings else None

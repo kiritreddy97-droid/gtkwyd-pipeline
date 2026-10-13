@@ -78,8 +78,10 @@ def build_prompt(text: str, style: str, mode: str) -> tuple[str, str | None]:
     prompt that doesn't look like a delivery cue, so how the style is attached matters."""
     if not style:
         return text, None
-    if mode == "say":          # 'Say in a warm, slow voice: ...' - the documented pattern
-        return f"Say in a {_short_style(style)} voice: {text}", None
+    if mode == "emotion":      # 'Say excitedly: ...' - a short cue, e.g. 'with a smile'
+        return f"Say {style.strip().rstrip('.')}: {text}", None
+    if mode == "say":          # 'Say <manner>: ...' - the documented pattern
+        return f"Say {_short_style(style)}: {text}", None
     if mode == "delimited":
         return (f"Read aloud ONLY the text between the triple quotes, in this manner: "
                 f"{_short_style(style)}. Do not read these instructions aloud.\n\"\"\"{text}\"\"\"",

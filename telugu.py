@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -306,7 +307,8 @@ def status() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="telugu")
     ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check",
-                                       "media-check"))
+                                       "media-check", "drama-test"))
+    ap.add_argument("--idea", default="")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
@@ -331,6 +333,25 @@ def main() -> int:
         from pipeline import genmedia
         for line in genmedia.check(BUILD_DIR / "media-check"):
             print(line)
+        return 0
+    if args.kind == "drama-test":
+        if not writer_te.available():
+            print("GEMINI_API_KEY is not set"); return 1
+        from pipeline import drama
+        idea = args.idea or (
+            "Raju, a poor auto-rickshaw driver in a Telugu town, finds a bag with a lot of money "
+            "left on his seat. His wife Lakshmi says to keep it for their daughter's school fees; "
+            "Raju struggles with his conscience. End on a cliffhanger: the bag's owner appears "
+            "at his door.")
+        model = load_config().get("telugu", {}).get("gemini_model", writer_te.DEFAULT_MODEL)
+        ep = drama.write_episode(idea, model)
+        out_dir = BUILD_DIR / "drama-test"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "episode.json").write_text(json.dumps(ep, ensure_ascii=False, indent=1),
+                                              encoding="utf-8")
+        mp4 = drama.render(ep, BUILD_DIR / "drama-test-work", load_config())
+        shutil.copy(mp4, out_dir / "episode.mp4")
+        print(f"drama-test OK: {out_dir / 'episode.mp4'}")
         return 0
     if args.kind == "selftest":
         return run_selftest()
