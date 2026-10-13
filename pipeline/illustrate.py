@@ -51,7 +51,7 @@ def _load(model: str):
 
 
 def generate(prompt: str, dest: Path, portrait: bool = False, model: str = DEFAULT_MODEL,
-             steps: int = 2, seed: int | None = None) -> Path:
+             steps: int = 2, seed: int | None = None, style: str | None = None) -> Path:
     """Draw `prompt` and save a 1920x1080 (or 1080x1920) JPEG at `dest`."""
     try:
         import torch
@@ -60,7 +60,8 @@ def generate(prompt: str, dest: Path, portrait: bool = False, model: str = DEFAU
         pipe = _load(model)
         w, h = (576, 1024) if portrait else (1024, 576)
         gen = torch.Generator().manual_seed(seed) if seed is not None else None
-        img = pipe(prompt=f"{prompt}, {STYLE}", width=w, height=h, num_inference_steps=steps,
+        full = prompt if style == "" else f"{prompt}, {style or STYLE}"
+        img = pipe(prompt=full, width=w, height=h, num_inference_steps=steps,
                    guidance_scale=0.0, generator=gen).images[0]
         tw, th = (1080, 1920) if portrait else (1920, 1080)
         img = img.convert("RGB").resize((tw, th), Image.LANCZOS)

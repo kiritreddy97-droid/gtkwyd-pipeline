@@ -42,7 +42,7 @@ def _models(kind: str) -> list[str]:
 
 def _post(model: str, body: dict, timeout: int = 180) -> dict:
     last = ""
-    for attempt in range(1, 4):
+    for attempt in range(1, 3):  # 429 = quota: don't wait long, let the caller rotate
         r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
                           headers={"x-goog-api-key": api_key(),
                                    "Content-Type": "application/json"},
@@ -95,8 +95,8 @@ def gemini_tts(text: str, out_wav: Path, voice: str = "Kore", style: str = "",
                model: str | None = None, mode: str = "say") -> Path:
     """Narrate `text` with Gemini TTS. `style` is a plain-language direction
     (e.g. 'a warm grandmother telling a gripping true story, varied pace')."""
-    model = model or (_models("tts") or [""])[0]
-    if not model:
+    models = [model] if model else _models("tts")
+    if not models:
         raise PipelineError("this key lists no Gemini TTS model")
     prompt, system = build_prompt(text, style, mode)
     body = {
@@ -108,7 +108,19 @@ def gemini_tts(text: str, out_wav: Path, voice: str = "Kore", style: str = "",
     }
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
-    data = _post(model, body)
+    # The free tier allows only a few voice requests per model per day, and each
+    # TTS model has its own allowance - so rotate to the next model on a 429.
+    data, last = None, ""
+    for m in models:
+        try:
+            data = _post(m, body)
+            break
+        except PipelineError as e:
+            last = str(e)
+            if "429" not in last:
+                raise
+    if data is None:
+        raise PipelineError(f"all Gemini voice models are over quota: {last[:160]}")
     mime, pcm = _inline(data, "audio")
     rate = re.search(r"rate=(\d+)", mime)
     out_wav.parent.mkdir(parents=True, exist_ok=True)
