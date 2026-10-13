@@ -26,8 +26,9 @@ jobs:
           key: hf-indic-parler-tts
       - name: Install
         run: |
-          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install -q git+https://github.com/huggingface/parler-tts.git soundfile
+          pip list 2>/dev/null | grep -i -E "^(torch|torchaudio|transformers|parler)"
       - name: Benchmark
         run: python scripts/bench_tts.py
       - uses: actions/upload-artifact@v4
