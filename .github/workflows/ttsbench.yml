@@ -1,0 +1,38 @@
+name: ttsbench
+
+# One-off benchmark (manual only): open-source Indic Parler-TTS Telugu voice on a
+# free CPU runner. Samples and timings are uploaded as an artifact.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-indic-parler-tts
+      - name: Install
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q git+https://github.com/huggingface/parler-tts.git soundfile
+      - name: Benchmark
+        run: python scripts/bench_tts.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ttsbench
+          path: out/ttsbench/*
+          retention-days: 3
