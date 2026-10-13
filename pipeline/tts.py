@@ -138,13 +138,16 @@ def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
     import re
 
     telugu = bool(re.search(r"[ఀ-౿]", text))
+    cur_style = style
     for attempt in range(1, retries + 1):
         try:
-            genmedia.gemini_tts(text, out_wav, voice, style, mode=mode)
+            genmedia.gemini_tts(text, out_wav, voice, cur_style, mode=mode)
             from .util import ffprobe_duration
             limit = 2.5 + len(text.split()) * (1.5 if telugu else 0.9)
             if ffprobe_duration(out_wav) > limit:
-                # far longer than the text needs: the model read the directions aloud
+                # far longer than the text needs: the model read the directions aloud.
+                # Plain text (no style) is always read cleanly, so retry that way.
+                cur_style = ""
                 raise PipelineError("clip is much longer than its text (style read aloud?)")
             level_match(out_wav)
             time.sleep(1.5)  # stay polite with the free tier's request rate
