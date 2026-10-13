@@ -155,6 +155,17 @@ def check(out_dir: Path) -> list[str]:
     except Exception as e:  # noqa: BLE001
         lines.append(f"Gemini TTS: FAILED {e}")
 
+    # does the voice read the style directions aloud? (production prompt, English)
+    try:
+        from .writer import VOICE_STYLES
+        en = ("The soft rain falls on the quiet roof as the evening slowly fades into night. "
+              "Take a slow breath in, and let it go.")
+        for cat in ("soothing", "fitness"):
+            p = gemini_tts(en, out_dir / f"en_{cat}.wav", "Orus", VOICE_STYLES[cat])
+            lines.append(f"English {cat} sample: OK ({p.stat().st_size // 1024} KB)")
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"English samples: FAILED {e}")
+
     ip = ("Cinematic painterly historical illustration, 16th-century South India, a great "
           "stone city with temples and bustling bazaar at golden hour, warm light, rich detail, "
           "no text, no modern objects")
