@@ -66,21 +66,47 @@ def _inline(data: dict, want: str) -> tuple[str, bytes]:
     raise PipelineError(f"no {want} in the response")
 
 
+def _short_style(style: str) -> str:
+    """First sentence of the style, reduced to a short manner phrase."""
+    first = re.split(r"(?<=[.!?])\s", style.strip())[0].rstrip(".!? ")
+    first = re.sub(r"^(Narrate|Speak|Say|Read)\s+", "", first, flags=re.I)
+    return first[:140]
+
+
+def build_prompt(text: str, style: str, mode: str) -> tuple[str, str | None]:
+    """(user prompt, system instruction). The TTS model reads aloud everything in the
+    prompt that doesn't look like a delivery cue, so how the style is attached matters."""
+    if not style:
+        return text, None
+    if mode == "say":          # 'Say in a warm, slow voice: ...' - the documented pattern
+        return f"Say in a {_short_style(style)} voice: {text}", None
+    if mode == "delimited":
+        return (f"Read aloud ONLY the text between the triple quotes, in this manner: "
+                f"{_short_style(style)}. Do not read these instructions aloud.\n\"\"\"{text}\"\"\"",
+                None)
+    if mode == "system":
+        return text, style
+    return f"{style}\n\n{text}", None   # "inline" - the original (reads the style aloud!)
+
+
 def gemini_tts(text: str, out_wav: Path, voice: str = "Kore", style: str = "",
-               model: str | None = None) -> Path:
+               model: str | None = None, mode: str = "say") -> Path:
     """Narrate `text` with Gemini TTS. `style` is a plain-language direction
     (e.g. 'a warm grandmother telling a gripping true story, varied pace')."""
     model = model or (_models("tts") or [""])[0]
     if not model:
         raise PipelineError("this key lists no Gemini TTS model")
-    prompt = (f"{style}\n\n{text}" if style else text)
-    data = _post(model, {
+    prompt, system = build_prompt(text, style, mode)
+    body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseModalities": ["AUDIO"],
             "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}},
         },
-    })
+    }
+    if system:
+        body["systemInstruction"] = {"parts": [{"text": system}]}
+    data = _post(model, body)
     mime, pcm = _inline(data, "audio")
     rate = re.search(r"rate=(\d+)", mime)
     out_wav.parent.mkdir(parents=True, exist_ok=True)
@@ -155,16 +181,27 @@ def check(out_dir: Path) -> list[str]:
     except Exception as e:  # noqa: BLE001
         lines.append(f"Gemini TTS: FAILED {e}")
 
-    # does the voice read the style directions aloud? (production prompt, English)
+    # does the voice read the style directions aloud? try each way of attaching it
     try:
         from .writer import VOICE_STYLES
         en = ("The soft rain falls on the quiet roof as the evening slowly fades into night. "
               "Take a slow breath in, and let it go.")
-        for cat in ("soothing", "fitness"):
-            p = gemini_tts(en, out_dir / f"en_{cat}.wav", "Orus", VOICE_STYLES[cat])
-            lines.append(f"English {cat} sample: OK ({p.stat().st_size // 1024} KB)")
+        for mode in ("say", "delimited", "system"):
+            for cat in ("soothing", "fitness"):
+                try:
+                    p = gemini_tts(en, out_dir / f"en_{mode}_{cat}.wav", "Orus",
+                                   VOICE_STYLES[cat], mode=mode)
+                    lines.append(f"English {mode}/{cat}: OK ({p.stat().st_size // 1024} KB)")
+                except Exception as e:  # noqa: BLE001
+                    lines.append(f"English {mode}/{cat}: FAILED {str(e)[:120]}")
+        for mode in ("say", "delimited"):
+            try:
+                p = gemini_tts(te, out_dir / f"te_{mode}.wav", "Charon", style, mode=mode)
+                lines.append(f"Telugu {mode}: OK ({p.stat().st_size // 1024} KB)")
+            except Exception as e:  # noqa: BLE001
+                lines.append(f"Telugu {mode}: FAILED {str(e)[:120]}")
     except Exception as e:  # noqa: BLE001
-        lines.append(f"English samples: FAILED {e}")
+        lines.append(f"voice samples: FAILED {e}")
 
     ip = ("Cinematic painterly historical illustration, 16th-century South India, a great "
           "stone city with temples and bustling bazaar at golden hour, warm light, rich detail, "
