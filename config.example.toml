@@ -18,7 +18,7 @@ pixabay_key = ""
 # gives exact word timings so captions need no speech recognition). If Edge is
 # unreachable for a render, English falls back to the Piper settings below.
 # "piper" = offline Piper voices only.
-engine = "gemini"
+engine = "edge"
 # "gemini" = Google's expressive, directable AI voice FIRST (free, GEMINI_API_KEY;
 # a style per content type: documentary, punchy Short, calm soothing reel, coach,
 # storyteller). If Gemini can't be used for a video it falls back to "edge" and
@@ -74,7 +74,7 @@ playlist_id = ""
 illustrations = true
 image_model = "stabilityai/sdxl-turbo"   # check its licence terms for your revenue level
 image_steps = 2
-voice_engine = "gemini"
+voice_engine = "edge"
 # Prebuilt Gemini voices: Charon, Orus, Fenrir, Puck (male-sounding);
 # Kore, Aoede, Leda, Zephyr (female-sounding).
 gemini_voice = "Charon"
