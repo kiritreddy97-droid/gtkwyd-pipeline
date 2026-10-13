@@ -127,12 +127,19 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
         n = max(1, len(assets))
         share = dur / n
         segs = []
+        from . import parallax
+        use_px = bool(cfg.get("visuals", {}).get("parallax", False)) and parallax.available()
         for j, asset in enumerate(assets):
-            segs.append(_segment(
-                asset.path, asset.kind, share,
-                workdir / f"seg_{idx:02d}_{j:02d}.mp4",
-                w, h, fps, ken_in=((idx + j) % 2 == 0),
-            ))
+            out_seg = workdir / f"seg_{idx:02d}_{j:02d}.mp4"
+            if use_px and asset.kind == "image" and asset.source == "ai":
+                try:  # 2.5D camera move from an estimated depth map
+                    segs.append(parallax.render_clip(asset.path, out_seg, max(0.6, share),
+                                                     w, h, fps, move=(idx + j) % 4))
+                    continue
+                except Exception as e:  # noqa: BLE001 - fall back to the plain zoom
+                    print(f"      parallax failed ({e}); using a plain zoom")
+            segs.append(_segment(asset.path, asset.kind, share, out_seg,
+                                 w, h, fps, ken_in=((idx + j) % 2 == 0)))
 
     scene_vid = (segs[0] if len(segs) == 1
                  else _concat_copy(segs, workdir / f"scene_{idx:02d}_v.mp4", workdir))

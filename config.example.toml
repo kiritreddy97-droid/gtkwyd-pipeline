@@ -87,6 +87,11 @@ prefer = "video"
 # footage or photos, when the library has one for the topic (falls back to
 # the plain query when it doesn't - never turns into "no results").
 prefer_animation = true
+# 2.5D camera moves for AI-drawn pictures (Telugu stories, dramas): a depth model
+# estimates how far each part is and near things shift more than far things, so a
+# flat drawing feels like a 3D scene. Adds ~1 min of render time per minute of
+# video; falls back to a plain zoom on any failure. Stock footage is unaffected.
+parallax = true
 
 [captions]
 enabled = true

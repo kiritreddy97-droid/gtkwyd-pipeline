@@ -334,6 +334,27 @@ def main() -> int:
         for line in genmedia.check(BUILD_DIR / "media-check"):
             print(line)
         return 0
+    if args.kind == "parallax-test":
+        from pipeline import illustrate, parallax
+        import numpy as np
+        import cv2
+        out_dir = BUILD_DIR / "parallax-test"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        prompts = [
+            "Pixar-style 3D animated film still, glossy, warm cinematic lighting, a thin Indian "
+            "man with a moustache in a khaki shirt sits in his yellow auto-rickshaw on a busy "
+            "colourful street at dusk, market stalls and buildings behind him",
+            "Pixar-style 3D animated film still, glossy, warm cinematic lighting, an Indian "
+            "woman in a green saree stands at the door of a small village house, trees and "
+            "a winding road behind her at golden hour",
+        ]
+        for i, p in enumerate(prompts):
+            img = illustrate.generate(p, out_dir / f"img_{i}.jpg", portrait=True, seed=5 + i, style="")
+            d = parallax.depth_map(img)
+            cv2.imwrite(str(out_dir / f"depth_{i}.png"), (d * 255).astype(np.uint8))
+            parallax.render_clip(img, out_dir / f"parallax_{i}.mp4", 5.0, 1080, 1920, 30, move=i)
+            print(f"parallax-test: clip {i} OK")
+        return 0
     if args.kind == "drama-test":
         if not writer_te.available():
             print("GEMINI_API_KEY is not set"); return 1
