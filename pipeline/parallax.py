@@ -64,13 +64,19 @@ def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, f
     img = cv2.resize(img, (w, h), interpolation=cv2.INTER_LANCZOS4)
     d = depth if depth is not None else depth_map(img_path)
     d = cv2.resize(d.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
-    d = cv2.GaussianBlur(d, (0, 0), max(2.0, w / 250))  # smooth, so edges don't tear
+    # RIGID LAYERS: a smoothly varying depth bends faces (the nose "shifts" more than the
+    # ear). So merge each object into a blob (median filter), snap depth to a few discrete
+    # layers, and only blur the layer edges slightly. Every object then moves as one piece.
+    d8 = cv2.medianBlur((d * 255).astype(np.uint8), 2 * (w // 36) + 1).astype(np.float32) / 255
+    layers = 4
+    d = np.round(d8 * (layers - 1)) / (layers - 1)
+    d = cv2.GaussianBlur(d, (0, 0), max(1.5, w / 500))
     near = d - 0.45  # points around the middle depth stay put
 
     gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
     cx, cy = w / 2.0, h / 2.0
     frames = max(2, round(seconds * fps))
-    amp = 0.028 * w  # max sideways parallax shift of the nearest pixels, in pixels
+    amp = 0.016 * w  # max sideways parallax shift of the nearest pixels, in pixels (gentle)
 
     cmd = [FFMPEG, "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}",
            "-r", str(fps), "-i", "-", "-an", "-c:v", "libx264", "-preset", "veryfast",

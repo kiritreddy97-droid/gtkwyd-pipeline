@@ -266,7 +266,10 @@ LANGUAGE RULES:
   period clothing, architecture and weapons, the light and mood. Historically
   plausible for the exact place and era; no modern objects; no text or writing;
   wide cinematic composition with the subject near the centre. The two prompts
-  of a scene show two different moments or angles of it. ALWAYS state the
+  of a scene show two different moments or angles of it. Prefer close and medium
+  shots where people are large in frame; the image model draws small, distant
+  faces badly, so show crowds and distant figures only as silhouettes or from
+  behind. ALWAYS state the
   people's ethnicity and region (for example "South Indian Telugu men with dark
   skin and moustaches in white dhotis", "Persian merchants", "Roman soldiers"):
   the image model otherwise draws Europeans. NEVER ask for flags, banners with

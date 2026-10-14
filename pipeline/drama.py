@@ -63,7 +63,9 @@ as "excitedly", "in a worried voice", "angrily", "with a smile", "in a whisper")
 "line" (what is said, in natural spoken Telugu script, 5 to 18 words, no English
 words, no stage directions), and "visual" (an ENGLISH description of the picture:
 the action, pose, expression, camera angle and setting; name which characters
-appear using their exact names). Vary the camera: close-up, wide, over-the-shoulder.
+appear using their exact names). Vary the camera between close-ups and medium shots with faces LARGE and clearly
+visible (the image model draws small, distant faces badly, so avoid wide shots where
+people are tiny; use a wide shot only for places, with no people or only silhouettes).
 Dialogue should feel like real people talking, with short back-and-forth lines.
 "to_be_continued": the Telugu words for "to be continued..." as a teaser line.
 """
