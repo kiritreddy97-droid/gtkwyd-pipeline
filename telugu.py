@@ -307,7 +307,7 @@ def status() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="telugu")
     ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check",
-                                       "media-check", "drama-test"))
+                                       "media-check", "drama-test", "parallax-test"))
     ap.add_argument("--idea", default="")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
