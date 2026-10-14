@@ -1,0 +1,37 @@
+name: videobench
+
+# One-off benchmark (manual only): can LTX-Video image-to-video run on a free CPU
+# runner? Reports per-stage time and peak RAM; uploads the clip.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Free disk space (the model is ~16 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1; free -g | head -2; nproc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q diffusers transformers accelerate sentencepiece imageio imageio-ffmpeg protobuf
+      - name: Benchmark
+        run: python scripts/bench_video.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: videobench
+          path: out/videobench/*
+          retention-days: 3
