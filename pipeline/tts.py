@@ -159,6 +159,45 @@ def trim_tail_burst(wav: Path, quiet_gap: float = 0.2, max_burst: float = 0.45) 
     return True
 
 
+def mute_head_pop(wav: Path, max_pop: float = 0.03, quiet_gap: float = 0.05) -> bool:
+    """Silence a tiny pop at the very start of a clip (a few ms of loud sound, then quiet
+    before the speech starts). Length is kept, so timings don't move. True when muted."""
+    import array
+    import wave
+
+    with wave.open(str(wav), "rb") as r:
+        params = r.getparams()
+        if params.sampwidth != 2 or params.nchannels != 1:
+            return False
+        data = array.array("h")
+        data.frombytes(r.readframes(params.nframes))
+    step = max(1, int(params.framerate * 0.001))
+    pk = [max(abs(x) for x in data[i:i + step]) if data[i:i + step] else 0
+          for i in range(0, len(data), step)]
+    if not pk:
+        return False
+    loud = max(pk) * 0.08
+    i = 0
+    while i < len(pk) and pk[i] < loud:
+        i += 1
+    start = i
+    while i < len(pk) and pk[i] >= loud:
+        i += 1
+    pop_end = i
+    gap_end = i
+    while gap_end < len(pk) and pk[gap_end] < loud:
+        gap_end += 1
+    if pop_end >= len(pk) or (pop_end - start) * 0.001 > max_pop \
+            or (gap_end - pop_end) * 0.001 < quiet_gap or gap_end >= len(pk):
+        return False
+    for j in range(0, min(len(data), (pop_end + 3) * step)):
+        data[j] = 0
+    with wave.open(str(wav), "wb") as w:
+        w.setparams(params)
+        w.writeframes(data.tobytes())
+    return True
+
+
 def level_match(wav: Path, target_lufs: float = -20.0) -> None:
     """Give a narration segment a consistent overall loudness with ONE gain change
     (no compression), so separate TTS calls match each other while each keeps its
