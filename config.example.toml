@@ -59,7 +59,7 @@ enabled = false
 # YouTube login (youtube_token_te.json) and Gemini for the writing.
 enabled = true
 # Shown on the thumbnail's top-right corner.
-channel_name = "తెలుగు చరిత్ర కథలు"
+channel_name = "INDIAN HISTORIC STORIES (TELUGU)"
 # "unlisted" while you check the first few episodes, then change to "public".
 visibility = "unlisted"
 # Any Gemini Flash model; if this name is retired the writer picks a current one.
