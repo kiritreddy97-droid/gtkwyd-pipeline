@@ -183,6 +183,8 @@ def _narrate(ep: dict, workdir: Path) -> tuple[list[Path], list[list], str]:
 
 def _declick_all(wavs: list[Path]) -> None:
     for w in wavs:
+        if tts.trim_tail_burst(w):
+            print(f"[drama] trimmed a noise burst off the end of {w.name}")
         tts.declick(w)
 
 

@@ -117,6 +117,48 @@ def declick(wav: Path, fade_in: float = 0.02, fade_out: float = 0.04) -> None:
     tmp.replace(wav)
 
 
+def trim_tail_burst(wav: Path, quiet_gap: float = 0.2, max_burst: float = 0.45) -> bool:
+    """Cut a short loud burst that follows the real speech after a quiet gap.
+
+    Gemini clips sometimes end with ~0.15 s of loud noise (heard as a scratch at every
+    scene cut). Only a trailing burst shorter than `max_burst`, separated from the speech
+    by at least `quiet_gap` of near-silence, is removed. Returns True when trimmed."""
+    import array
+    import wave
+
+    with wave.open(str(wav), "rb") as r:
+        params = r.getparams()
+        if params.sampwidth != 2 or params.nchannels != 1:
+            return False
+        data = array.array("h")
+        data.frombytes(r.readframes(params.nframes))
+    sr = params.framerate
+    step = max(1, int(sr * 0.01))
+    rms = [(sum(x * x for x in data[i:i + step]) / max(1, len(data[i:i + step]))) ** 0.5
+           for i in range(0, len(data), step)]
+    if not rms:
+        return False
+    loud = max(rms) * 0.12
+    tail_end = len(rms)
+    while tail_end > 0 and rms[tail_end - 1] < loud:
+        tail_end -= 1
+    b_end = tail_end
+    b_start = b_end
+    while b_start > 0 and rms[b_start - 1] >= loud:
+        b_start -= 1
+    gap_end = b_start
+    g_start = gap_end
+    while g_start > 0 and rms[g_start - 1] < loud:
+        g_start -= 1
+    if (b_end - b_start) * 0.01 > max_burst or (gap_end - g_start) * 0.01 < quiet_gap or g_start == 0:
+        return False
+    keep = min(len(data), (g_start + 12) * step)  # keep the word's fading tail
+    with wave.open(str(wav), "wb") as w:
+        w.setparams(params)
+        w.writeframes(data[:keep].tobytes())
+    return True
+
+
 def level_match(wav: Path, target_lufs: float = -20.0) -> None:
     """Give a narration segment a consistent overall loudness with ONE gain change
     (no compression), so separate TTS calls match each other while each keeps its
