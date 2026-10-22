@@ -12,7 +12,7 @@ config.toml
 client_secret*.json*
 *.apps.googleusercontent.com.json
 youtube_token.json
-youtube_token_te.json
+youtube_token*.json
 
 # your personal, full local music library (large; CI uses assets/cloud-music/
 # instead - a small curated set that IS committed)
