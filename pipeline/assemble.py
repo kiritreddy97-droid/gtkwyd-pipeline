@@ -101,13 +101,13 @@ def _segment(asset_path: Path, kind: str, seconds: float, out: Path,
     return out
 
 
-def _concat_copy(parts: list[Path], out: Path, workdir: Path) -> Path:
+def _concat_copy(parts: list[Path], out: Path, workdir: Path, fmt: str | None = None) -> Path:
     listing = workdir / f"{out.stem}_list.txt"
     listing.write_text(
         "".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8"
     )
     run([FFMPEG, "-y", "-f", "concat", "-safe", "0", "-i", listing.name,
-         "-c", "copy", out.name], cwd=workdir)
+         "-c", "copy", *(["-f", fmt] if fmt else []), out.name], cwd=workdir)
     return out
 
 
@@ -149,7 +149,9 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
          "-map", "0:v:0", "-map", "1:a:0",
          "-af", "apad,aformat=sample_rates=48000:channel_layouts=stereo",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-r", str(fps),
-         "-c:a", "aac", "-b:a", "192k", "-shortest", scene_final])
+         # Uncompressed audio (mov container, .mp4 name kept): joining separately
+         # AAC-encoded scenes leaves a click at every join; finalize() encodes once.
+         "-c:a", "pcm_s16le", "-shortest", "-f", "mov", scene_final])
     return scene_final, ffprobe_duration(scene_final)
 
 
@@ -161,7 +163,7 @@ def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
     fps = int(cfg.get("project", {}).get("fps", 30))
     mv = float(cfg.get("music", {}).get("volume", 0.12))
 
-    body = _concat_copy(scene_finals, workdir / "body.mp4", workdir)
+    body = _concat_copy(scene_finals, workdir / "body.mp4", workdir, fmt="mov")
     total = ffprobe_duration(body)
 
     # bundle any project fonts next to the render so libass can find them
