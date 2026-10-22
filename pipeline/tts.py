@@ -106,6 +106,17 @@ def approx_word_timings(wav: Path, text: str) -> list[WordTiming]:
     return out
 
 
+def declick(wav: Path, fade_in: float = 0.02, fade_out: float = 0.04) -> None:
+    """Tiny fades so clips that start/end abruptly don't click when joined."""
+    from .util import ffprobe_duration
+
+    dur = ffprobe_duration(wav)
+    tmp = wav.with_name(wav.stem + "_dc.wav")
+    run([FFMPEG, "-y", "-i", wav, "-af",
+         f"afade=t=in:d={fade_in},afade=t=out:st={max(0.0, dur - fade_out):.3f}:d={fade_out}", tmp])
+    tmp.replace(wav)
+
+
 def level_match(wav: Path, target_lufs: float = -20.0) -> None:
     """Give a narration segment a consistent overall loudness with ONE gain change
     (no compression), so separate TTS calls match each other while each keeps its
@@ -138,7 +149,9 @@ def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
     import re
 
     telugu = bool(re.search(r"[ఀ-౿]", text))
-    cur_style = style
+    # Delivery directions of ANY length can be read aloud ("say it with a smile"), so the
+    # style is deliberately NOT sent; the voice infers its delivery from the text itself.
+    cur_style = ""
     for attempt in range(1, retries + 1):
         try:
             genmedia.gemini_tts(text, out_wav, voice, cur_style, mode=mode)

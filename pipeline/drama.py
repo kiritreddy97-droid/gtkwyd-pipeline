@@ -181,6 +181,11 @@ def _narrate(ep: dict, workdir: Path) -> tuple[list[Path], list[list], str]:
     return wavs, out, "edge"
 
 
+def _declick_all(wavs: list[Path]) -> None:
+    for w in wavs:
+        tts.declick(w)
+
+
 def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None) -> Path:
     """Render an episode dict to a vertical 1080x1920 mp4. Raises PipelineError."""
     cfg = json.loads(json.dumps(cfg))
@@ -194,6 +199,7 @@ def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None) -> Pat
     chars = ep["characters"]
 
     wavs, word_timings, engine = _narrate(ep, workdir)
+    _declick_all(wavs)
     print(f"[drama] voices: {engine}")
 
     finals, timings = [], []
