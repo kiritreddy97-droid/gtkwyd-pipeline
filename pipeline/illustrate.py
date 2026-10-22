@@ -58,13 +58,21 @@ def generate(prompt: str, dest: Path, portrait: bool = False, model: str = DEFAU
         from PIL import Image, ImageFilter
 
         pipe = _load(model)
-        w, h = (576, 1024) if portrait else (1024, 576)
+        # Tall generations (576x1024) give stretched necks and duplicated heads; a 704x704
+        # square is clean, so portrait shots are drawn square and the middle is cropped.
+        w, h = (704, 704) if portrait else (1024, 576)
         gen = torch.Generator().manual_seed(seed) if seed is not None else None
         full = prompt if style == "" else f"{prompt}, {style or STYLE}"
         img = pipe(prompt=full, width=w, height=h, num_inference_steps=steps,
                    guidance_scale=0.0, generator=gen).images[0]
         tw, th = (1080, 1920) if portrait else (1920, 1080)
-        img = img.convert("RGB").resize((tw, th), Image.LANCZOS)
+        img = img.convert("RGB")
+        if portrait:  # scale the square to full height, keep the centre strip
+            img = img.resize((th, th), Image.LANCZOS)
+            left = (th - tw) // 2
+            img = img.crop((left, 0, left + tw, th))
+        else:
+            img = img.resize((tw, th), Image.LANCZOS)
         img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=120, threshold=2))
         dest.parent.mkdir(parents=True, exist_ok=True)
         img.save(dest, quality=95)
