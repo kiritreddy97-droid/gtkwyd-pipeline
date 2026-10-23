@@ -1,0 +1,28 @@
+{
+ "season": 1,
+ "characters": [
+  {
+   "name": "Raju",
+   "gender": "male",
+   "look": "A 32-year-old skinny Indian auto-driver with a mustache, medium brown skin, wearing a khaki auto driver shirt over a white vest."
+  },
+  {
+   "name": "Lakshmi",
+   "gender": "female",
+   "look": "A 28-year-old traditional Indian woman with long black hair tied in a braid, wearing a simple yellow cotton saree with a red border."
+  },
+  {
+   "name": "Srinivas",
+   "gender": "male",
+   "look": "A 50-year-old well-dressed Indian man with grey hair, thick glasses, wearing a crisp light blue buttoned shirt."
+  }
+ ],
+ "episodes": [
+  {
+   "n": 1,
+   "title": "రాత్రి వచ్చిన రూపాయి",
+   "title_en": "The Bag of Hope",
+   "summary": "Raju finds a large bag of money forgotten in his auto-rickshaw, which his wife Lakshmi begs him to keep for their daughter's urgent school fees. Just as Raju decides whether to keep it or hand it to the police, an elderly passenger appears at their front door demanding his bag."
+  }
+ ]
+}
