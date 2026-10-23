@@ -41,9 +41,16 @@ _SCHEMA = {
             "required": ["name", "gender", "look"]}},
         "shots": {"type": "ARRAY", "items": _SHOT},
         "to_be_continued": {"type": "STRING"},
+        "summary": {"type": "STRING"},
     },
-    "required": ["title", "title_en", "characters", "shots", "to_be_continued"],
+    "required": ["title", "title_en", "characters", "shots", "to_be_continued", "summary"],
 }
+SEASON_LENGTH = 12
+FIRST_PREMISE = (
+    "Raju, a poor auto-rickshaw driver in a Telugu town, finds a bag with a lot of money "
+    "left on his seat. His wife Lakshmi says to keep it for their daughter's school fees; "
+    "Raju struggles with his conscience. End on a cliffhanger: the bag's owner appears "
+    "at his door.")
 _SYSTEM = """\
 You write a short episode of an original, family-friendly Telugu animated mini-series
 for Instagram Reels and YouTube Shorts, in the style of viral AI drama reels.
@@ -68,6 +75,14 @@ visible (the image model draws small, distant faces badly, so avoid wide shots w
 people are tiny; use a wide shot only for places, with no people or only silhouettes).
 Dialogue should feel like real people talking, with short back-and-forth lines.
 "to_be_continued": the Telugu words for "to be continued..." as a teaser line.
+"summary": 2 sentences in ENGLISH: what happened in this episode and how it ends (used to
+keep the next episode consistent).
+
+SERIES: when a cast and "story so far" are given, this is the next episode of the same
+series: reuse the same characters (exact names, same gender), continue directly from the
+last cliffhanger, and never contradict what already happened. When told this is the
+finale, resolve the story warmly instead of a cliffhanger and make "to_be_continued" the
+Telugu word for "The End".
 """
 
 
@@ -96,10 +111,42 @@ def validate(d: dict) -> list[str]:
     return probs[:6]
 
 
-def write_episode(idea: str, model: str = writer_te.DEFAULT_MODEL, attempts: int = 3) -> dict:
+def merge_cast(ep: dict, cast: list[dict]) -> None:
+    """Keep the series' established characters exactly as first written (same look text, so
+    every episode draws them the same way); a newly introduced one is kept while there is
+    room for it."""
+    known = {c["name"].strip(): c for c in cast}
+    merged = [dict(known[c["name"].strip()]) if c.get("name", "").strip() in known else c
+              for c in ep.get("characters", [])]
+    for name, c in known.items():
+        if name not in {m.get("name", "").strip() for m in merged} and len(merged) < 3:
+            merged.append(dict(c))
+    ep["characters"] = merged[:3]
+
+
+def series_prompt(series: dict | None) -> tuple[str, bool]:
+    """(prompt text for the writer, is_finale) from the saved series state."""
+    eps = (series or {}).get("episodes", [])
+    if not eps:
+        return f"Episode idea (episode 1 of a new series): {FIRST_PREMISE if not series or not series.get('premise') else series['premise']}", False
+    cast = "; ".join(f"{c['name']} ({c['gender']}): {c['look']}" for c in series["characters"])
+    story = "\n".join(f"Episode {e['n']} - {e['title_en']}: {e['summary']}" for e in eps[-6:])
+    n = len(eps) + 1
+    finale = n >= SEASON_LENGTH
+    return (f"This is episode {n} of the series.{' THIS IS THE FINALE.' if finale else ''}\n"
+            f"Cast (reuse exactly): {cast}\nStory so far:\n{story}\n"
+            f"Write episode {n}, continuing directly from the last cliffhanger."), finale
+
+
+def write_episode(idea: str, model: str = writer_te.DEFAULT_MODEL, attempts: int = 3,
+                  cast: list[dict] | None = None) -> dict:
     last = ""
     for _ in range(attempts):
-        data = writer_te._call(_SYSTEM, f"Episode idea: {idea}", _SCHEMA, model, 12000, 0.9)
+        prompt = idea if idea.startswith(("Episode idea", "This is episode")) \
+            else f"Episode idea: {idea}"
+        data = writer_te._call(_SYSTEM, prompt, _SCHEMA, model, 12000, 0.9)
+        if cast:
+            merge_cast(data, cast)
         probs = validate(data)
         if not probs:
             return data
@@ -157,9 +204,10 @@ def _edge_voices(chars: list[dict]) -> dict[str, tuple[str, int]]:
     return out
 
 
-def _narrate(ep: dict, workdir: Path) -> tuple[list[Path], list[list], str]:
+def _narrate(ep: dict, workdir: Path, require_gemini: bool = False) -> tuple[list[Path], list[list], str]:
     """Voice every line. Gemini (distinct voice per character) if the free quota
-    allows; otherwise the whole episode in Edge voices. Returns (wavs, word timings, engine)."""
+    allows; otherwise the whole episode in Edge voices (or an error when `require_gemini`).
+    Returns (wavs, word timings, engine)."""
     shots, chars = ep["shots"], ep["characters"]
     wavs = [workdir / "narration" / f"s{i:02d}.wav" for i in range(len(shots))]
     if writer_te.available():
@@ -170,7 +218,11 @@ def _narrate(ep: dict, workdir: Path) -> tuple[list[Path], list[list], str]:
                    for s, w in zip(shots, wavs)]
             return wavs, out, "gemini"
         except PipelineError as e:
+            if require_gemini:
+                raise PipelineError(f"Gemini voices unavailable: {str(e)[:120]}") from e
             print(f"[drama] Gemini voices unavailable ({str(e)[:90]}); using Edge voices")
+    elif require_gemini:
+        raise PipelineError("Gemini voices unavailable: no API key")
     ev = _edge_voices(chars)
     out = []
     for s, w in zip(shots, wavs):
@@ -182,15 +234,14 @@ def _narrate(ep: dict, workdir: Path) -> tuple[list[Path], list[list], str]:
 
 
 def _declick_all(wavs: list[Path]) -> None:
+    # Gemini clips are already trimmed/declicked in tts.synthesize_gemini; this covers the
+    # Edge fallback clips.
     for w in wavs:
-        if tts.trim_tail_burst(w):
-            print(f"[drama] trimmed a noise burst off the end of {w.name}")
-        if tts.mute_head_pop(w):
-            print(f"[drama] muted a start-of-clip pop in {w.name}")
         tts.declick(w)
 
 
-def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None) -> Path:
+def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None,
+           require_gemini: bool = False, seed_base: int = 77) -> Path:
     """Render an episode dict to a vertical 1080x1920 mp4. Raises PipelineError."""
     cfg = json.loads(json.dumps(cfg))
     cfg.setdefault("project", {})["orientation"] = "portrait"
@@ -202,7 +253,7 @@ def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None) -> Pat
     art_model = cfg.get("telugu", {}).get("image_model", illustrate.DEFAULT_MODEL)
     chars = ep["characters"]
 
-    wavs, word_timings, engine = _narrate(ep, workdir)
+    wavs, word_timings, engine = _narrate(ep, workdir, require_gemini)
     _declick_all(wavs)
     print(f"[drama] voices: {engine}")
 
@@ -211,7 +262,7 @@ def render(ep: dict, workdir: Path, cfg: dict, music: Path | None = None) -> Pat
     for i, shot in enumerate(ep["shots"]):
         print(f"[drama] shot {i + 1}/{len(ep['shots'])} drawing: {shot['visual'][:60]}")
         img = illustrate.generate(shot_prompt(shot, chars), workdir / f"art_{i:02d}.jpg",
-                                  portrait=True, model=art_model, seed=77 + i, style="")
+                                  portrait=True, model=art_model, seed=seed_base + i, style="")
         mp4, dur = assemble.build_scene(i, wavs[i], [Asset(img, "image", shot["visual"], "ai")],
                                         cfg, workdir, lang="te")
         finals.append(mp4)

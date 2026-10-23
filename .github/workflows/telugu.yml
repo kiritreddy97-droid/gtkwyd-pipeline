@@ -24,7 +24,7 @@ on:
       kind:
         description: "daily (story + Short), long, short, selftest (renders a bundled sample, no Gemini/YouTube needed), or gemini-check (lists which Gemini models your key can use)"
         type: choice
-        options: [daily, long, short, selftest, gemini-check, media-check, drama-test, parallax-test]
+        options: [daily, long, short, drama, selftest, gemini-check, media-check, drama-test, parallax-test]
         default: daily
       dry_run:
         description: "render only, do not upload"
@@ -169,7 +169,7 @@ jobs:
         run: |
           git config user.name "gtkwyd-bot"
           git config user.email "actions@users.noreply.github.com"
-          for p in history-telugu.jsonl topics_used.txt topics-telugu-history.txt \
+          for p in history-telugu.jsonl series-drama.json topics_used.txt topics-telugu-history.txt \
                    scripts/_generated-telugu scripts/telugu-shorts-queue scripts/published; do
             git add "$p" 2>/dev/null || true
           done

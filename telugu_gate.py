@@ -7,7 +7,7 @@ and the rest exit in seconds - and, because it keys off Eastern time rather
 than a fixed UTC hour, it stays correct across daylight-saving changes.
 
   go=true  when: manually dispatched, OR (it is 12:00 ET or later AND today's
-           story or today's Short has not been uploaded yet, ET calendar day)
+           story, Short or drama episode has not been uploaded yet, ET calendar day)
 """
 import datetime as dt
 import json
@@ -35,10 +35,10 @@ def decide(now_et: dt.datetime, manual: bool, rows: list[dict]) -> tuple[bool, s
     today = now_et.date().isoformat()
     done = {r.get("format") for r in rows
             if r.get("status") == "uploaded" and r.get("ts") and et_date(r["ts"]) == today}
-    if {"te-video", "te-short"} <= done:
-        return False, "today's story and Short are already uploaded"
-    return True, f"{now_et:%H:%M} ET, still to do today: " + ", ".join(
-        sorted({"te-video", "te-short"} - done))
+    need = {"te-video", "te-short", "te-drama"}
+    if need <= done:
+        return False, "today's story, Short and drama episode are already uploaded"
+    return True, f"{now_et:%H:%M} ET, still to do today: " + ", ".join(sorted(need - done))
 
 
 def main() -> int:

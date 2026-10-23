@@ -74,7 +74,10 @@ playlist_id = ""
 illustrations = true
 image_model = "stabilityai/sdxl-turbo"   # check its licence terms for your revenue level
 image_steps = 2
-voice_engine = "edge"
+voice_engine = "gemini"
+# A daily animated mini-series episode (a Short) after the story and its Short; 12
+# episodes per season, then a new story and cast. Uses Gemini voices only.
+drama = true
 # Prebuilt Gemini voices: Charon, Orus, Fenrir, Puck (male-sounding);
 # Kore, Aoede, Leda, Zephyr (female-sounding).
 gemini_voice = "Charon"

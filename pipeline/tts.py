@@ -243,6 +243,13 @@ def synthesize_gemini(text: str, out_wav: Path, voice: str, style: str,
                 # Plain text (no style) is always read cleanly, so retry that way.
                 cur_style = ""
                 raise PipelineError("clip is much longer than its text (style read aloud?)")
+            # Gemini clips can end with a short noise burst and start with a tiny pop; both
+            # are heard as clicks/scratches where clips are joined.
+            if trim_tail_burst(out_wav, max_burst=0.25):
+                print("      [voice] trimmed a noise burst off the clip end")
+            if mute_head_pop(out_wav):
+                print("      [voice] muted a pop at the clip start")
+            declick(out_wav)
             level_match(out_wav)
             time.sleep(1.5)  # stay polite with the free tier's request rate
             return approx_word_timings(out_wav, text) if timings else None

@@ -37,6 +37,7 @@ LONG_DIR = ROOT / "scripts" / "_generated-telugu"
 SHORT_QUEUE = ROOT / "scripts" / "telugu-shorts-queue"
 PUBLISHED = ROOT / "scripts" / "published"
 HISTORY = ROOT / "history-telugu.jsonl"
+SERIES = ROOT / "series-drama.json"
 LOG = ROOT / "telugu.log"
 TOKEN = ROOT / "youtube_token_te.json"
 PY = Path(sys.executable)
@@ -265,13 +266,109 @@ def run_short(dry_run: bool) -> int:
     return _finish(script_path, "te-short", tcfg, dry_run, entry)
 
 
+def _load_series() -> dict:
+    if SERIES.exists():
+        try:
+            return json.loads(SERIES.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"season": 1, "characters": [], "episodes": []}
+
+
+def run_drama(dry_run: bool) -> int:
+    """One episode of the animated mini-series (a Short): Gemini writes it as the next
+    chapter of the running story, Gemini voices every character, then it is uploaded.
+    Needs the Gemini voices (the Edge fallback would be a step down), so if their free quota
+    is used up it simply tries again at the next run / tomorrow."""
+    from pipeline import drama
+
+    cfg = load_config()
+    tcfg = cfg.get("telugu", {})
+    if not tcfg.get("enabled", True) or not tcfg.get("drama", True):
+        log("[te-drama] disabled in config"); return 0
+    if not writer_te.available():
+        log("[te-drama] GEMINI_API_KEY not set - skipping"); return 0
+    if _uploaded_today("te-drama") and not dry_run:
+        log("[te-drama] already uploaded today - skipping"); return 0
+
+    series = _load_series()
+    if len(series["episodes"]) >= drama.SEASON_LENGTH:  # last season ended: start a new one
+        series = {"season": series.get("season", 1) + 1, "characters": [], "episodes": [],
+                  "premise": ("Invent a completely new original story and cast, different from "
+                              "earlier seasons (a different town, family and problem)")}
+    n = len(series["episodes"]) + 1
+    prompt, finale = drama.series_prompt(series)
+    model = tcfg.get("gemini_model", writer_te.DEFAULT_MODEL)
+    log(f"[te-drama] season {series.get('season', 1)} episode {n}{' (finale)' if finale else ''}")
+    try:
+        ep = drama.write_episode(prompt, model, cast=series["characters"] or None)
+    except writer_te.GeminiUnavailable as e:
+        log(f"[te-drama] Gemini unavailable, will retry later: {e}"); return 1
+    except Exception as e:  # noqa: BLE001
+        log(f"[te-drama] writer failed: {e}"); return 1
+
+    out_dir = BUILD_DIR / "drama-daily"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "episode.json").write_text(json.dumps(ep, ensure_ascii=False, indent=1),
+                                          encoding="utf-8")
+    t0 = time.time()
+    try:
+        mp4 = drama.render(ep, BUILD_DIR / "drama-daily-work", cfg, require_gemini=True,
+                           seed_base=77 + 100 * series.get("season", 1) + 13 * n)
+    except Exception as e:  # noqa: BLE001
+        log(f"[te-drama] render failed (will retry): {e}"); return 1
+    video = out_dir / "episode.mp4"
+    shutil.copy(mp4, video)
+    secs = round(time.time() - t0)
+
+    label = f"సీజన్ {series['season']} " if series.get("season", 1) > 1 else ""
+    title = f"{ep['title']} | {label}భాగం {n}"[:100]
+    desc = (f"{ep.get('title_en', '')} - part {n} of an original Telugu animated mini-series.\n\n"
+            f"{ep.get('summary', '')}\n\nNew episode every day. Subscribe so you don't miss "
+            f"the next one!\n\n#Shorts #TeluguStories #TeluguShorts #Telugu")
+    tags = ["Telugu", "Telugu stories", "Telugu short film", "animated story", "Shorts",
+            "తెలుగు కథలు", "తెలుగు"]
+    entry = _new_entry("te-drama", f"drama-s{series.get('season', 1)}-e{n}", title,
+                       ep.get("title_en", ""), f"season {series.get('season', 1)} ep {n}", "")
+    entry["render_seconds"] = secs
+    if dry_run or not TOKEN.exists():
+        entry["status"] = "rendered" if dry_run else "rendered_no_token"
+        _record(entry)
+        log(f"[te-drama] rendered only ({secs}s): {video}")
+        return 0
+
+    from pipeline import youtube
+    visibility = tcfg.get("visibility", "unlisted")
+    try:
+        vid = youtube.upload(video, title=title, description=desc, tags=tags,
+                             privacy=visibility, made_for_kids=False, thumbnail=None,
+                             playlist_id=tcfg.get("drama_playlist_id") or None,
+                             token_path=TOKEN, language="te")
+    except Exception as e:  # noqa: BLE001
+        entry["status"] = "upload_failed"; entry["error"] = str(e)
+        _record(entry)
+        log(f"[te-drama] upload failed: {e}"); return 1
+
+    series["characters"] = ep["characters"]
+    series["episodes"].append({"n": n, "title": ep["title"], "title_en": ep.get("title_en", ""),
+                               "summary": ep.get("summary", "")})
+    series.pop("premise", None)
+    SERIES.write_text(json.dumps(series, ensure_ascii=False, indent=1), encoding="utf-8")
+    entry.update(status="uploaded", video_id=vid, visibility=visibility)
+    _record(entry)
+    log(f"[te-drama] UPLOADED season {series['season']} episode {n}  https://youtu.be/{vid}  "
+        f"({visibility}, {secs}s)")
+    return 0
+
+
 def run_daily(dry_run: bool) -> int:
     """The 12pm-ET job: today's story first (which also writes today's Short),
-    then that Short. Each half has its own once-a-day guard, so a re-run after
-    a partial failure only redoes what is missing."""
+    then that Short, then today's drama episode. Each part has its own once-a-day
+    guard, so a re-run after a partial failure only redoes what is missing."""
     rc_long = run_long(dry_run)
     rc_short = run_short(dry_run)
-    return rc_long or rc_short
+    rc_drama = run_drama(dry_run)
+    return rc_long or rc_short or rc_drama
 
 
 def run_selftest() -> int:
@@ -306,8 +403,9 @@ def status() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="telugu")
-    ap.add_argument("--kind", choices=("daily", "long", "short", "selftest", "gemini-check",
-                                       "media-check", "drama-test", "parallax-test"))
+    ap.add_argument("--kind", choices=("daily", "long", "short", "drama", "selftest",
+                                       "gemini-check", "media-check", "drama-test",
+                                       "parallax-test"))
     ap.add_argument("--idea", default="")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", action="store_true")
@@ -378,6 +476,8 @@ def main() -> int:
         return run_selftest()
     if args.kind == "daily":
         return run_daily(args.dry_run)
+    if args.kind == "drama":
+        return run_drama(args.dry_run)
     return run_long(args.dry_run) if args.kind == "long" else run_short(args.dry_run)
 
 
