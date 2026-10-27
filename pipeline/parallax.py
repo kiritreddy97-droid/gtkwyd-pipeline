@@ -52,9 +52,10 @@ def depth_map(img_path: Path):
 
 
 def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, fps: int,
-                move: int = 0, depth=None) -> Path:
+                move: int = 0, depth=None, punch: float = 1.0) -> Path:
     """Render `seconds` of camera move over the image into out_mp4 (no audio).
-    `move` picks the camera path: 0 push-in, 1 pan right, 2 pull-out, 3 pan left."""
+    `move` picks the camera path: 0 push-in, 1 pan right, 2 pull-out, 3 pan left.
+    `punch` scales how big the move is (1.0 = gentle; Shorts use more so they read as video)."""
     import cv2
     import numpy as np
 
@@ -76,7 +77,7 @@ def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, f
     gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
     cx, cy = w / 2.0, h / 2.0
     frames = max(2, round(seconds * fps))
-    amp = 0.016 * w  # max sideways parallax shift of the nearest pixels, in pixels (gentle)
+    amp = 0.016 * w * punch  # max sideways parallax shift of the nearest pixels, in pixels
 
     cmd = [FFMPEG, "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}",
            "-r", str(fps), "-i", "-", "-an", "-c:v", "libx264", "-preset", "veryfast",
@@ -90,6 +91,7 @@ def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, f
             elif move == 2:  zoom, lat = 1.13 - 0.07 * s, (0.5 - s) * 0.9
             elif move == 1:  zoom, lat = 1.09, (s - 0.5) * 2.0
             else:            zoom, lat = 1.09, (0.5 - s) * 2.0
+            zoom = 1.0 + (zoom - 1.0) * punch
             mx = ((gx - cx) / zoom + cx - lat * amp * near).astype(np.float32)
             my = ((gy - cy) / zoom + cy - 0.35 * lat * amp * near).astype(np.float32)
             frame = cv2.remap(img, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)

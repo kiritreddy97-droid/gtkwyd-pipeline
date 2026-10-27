@@ -41,6 +41,9 @@ EN_STYLE_SHORT = ("Narrate like an energetic, engaging creator hooking viewers i
                   "surprising part." + _EN_COMMON)
 EN_STYLE_REEL = ("Narrate like a friendly, expressive storyteller speaking to camera for a "
                  "short vertical video." + _EN_COMMON)
+# Telugu Shorts are drawn like the drama episodes (cleaner faces than the painterly look).
+SHORT_ART_STYLE = ("Pixar-style 3D animated film still, glossy, warm cinematic lighting, "
+                   "dramatic, simple clean composition, no text")
 DEFAULT_TE_STYLE = (
     "Narrate in natural, warm, conversational Telugu, like a gifted storyteller telling a "
     "true story to family around a fire: expressive and human, never like reading a passage. "
@@ -119,6 +122,8 @@ def main() -> int:
     if lang != "en":
         cfg.setdefault("visuals", {})["prefer_animation"] = False  # history needs real imagery
         channel = cfg.get("telugu", {}).get("channel_name", channel)
+        # Bigger camera moves so the pictures read as video, not slides (Shorts most).
+        cfg["visuals"]["parallax_punch"] = 1.8 if args.short else 1.3
     # Small per-render jitter around the configured base values, so two
     # videos using the same voice still don't come out sounding identical.
     length_scale = max(0.85, float(vcfg.get("length_scale", 1.0)) + random.uniform(-0.04, 0.05))
@@ -225,7 +230,8 @@ def main() -> int:
                     try:
                         p = illustrate.generate(
                             prompt, workdir / f"art_{i:02d}_{j}.jpg", portrait=(w < h),
-                            model=art_model, steps=art_steps, seed=1000 * i + j)
+                            model=art_model, steps=art_steps, seed=1000 * i + j,
+                            style=(SHORT_ART_STYLE if args.short and lang != "en" else None))
                         made.append(Asset(p, "image", prompt, "ai"))
                     except PipelineError as e:
                         print(f"      art failed ({e}); using stock footage for this scene")

@@ -26,7 +26,7 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 LONG_WORDS = (740, 1100)  # the first real story ran ~84 wpm: ~830 words = 10 min
 SHORT_WORDS = (58, 95)
 LONG_SCENES = (12, 20)
-SHORT_SCENES = (3, 6)
+SHORT_SCENES = (7, 12)  # many short scenes = a new picture every few seconds
 
 _TELUGU = re.compile(r"[ఀ-౿]")
 _LATIN = re.compile(r"[A-Za-z]")
@@ -299,9 +299,14 @@ Each scene must move the story forward - no filler, no repetition.
 """
 
 _SHORT_SYSTEM = _RULES + """
-FORMAT: a ~60-second vertical Short. 4 scenes, TOTAL 65 to 85 Telugu words.
-Scene 1 is a one- or two-sentence hook that makes people stay. Then the single
-most dramatic part of the story, told fast. Finish with a punchy last line.
+FORMAT: a ~60-second vertical Short. 9 or 10 SHORT scenes, each scene's narration
+6 to 9 Telugu words (one short sentence), TOTAL 65 to 85 words. Scene 1 is a
+one-sentence hook that makes people stay. Then the single most dramatic part of
+the story, told fast. Finish with a punchy last line. Because scenes are so short,
+each scene's two image_prompts show two clearly different, vivid moments, so the
+picture changes every few seconds. Make every picture a simple, clean composition
+with ONE or TWO large subjects (a face or figure close up, a building, an object);
+no crowds and no busy backgrounds, which the image model draws badly.
 """
 
 _REVIEW_SYSTEM = """\

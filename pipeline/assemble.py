@@ -134,7 +134,9 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
             if use_px and asset.kind == "image" and asset.source == "ai":
                 try:  # 2.5D camera move from an estimated depth map
                     segs.append(parallax.render_clip(asset.path, out_seg, max(0.6, share),
-                                                     w, h, fps, move=(idx + j) % 4))
+                                                     w, h, fps, move=(idx + j) % 4,
+                                                     punch=float(cfg.get("visuals", {})
+                                                                 .get("parallax_punch", 1.0))))
                     continue
                 except Exception as e:  # noqa: BLE001 - fall back to the plain zoom
                     print(f"      parallax failed ({e}); using a plain zoom")
