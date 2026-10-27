@@ -280,14 +280,17 @@ def main() -> int:
         srt_out = cap["srt"]
 
     music_path = None
-    if script.music:
+    no_music = lang != "en" and not tcfg.get("music", False)  # Telugu channel: voice only
+    if no_music:
+        print("[music]  none (Telugu channel is voice-only)")
+    elif script.music:
         mp = (Path(script.music) if Path(script.music).is_absolute()
               else Path.cwd() / script.music)
         if mp.exists():
             music_path = mp
         else:
             print(f"[music]  {script.music} not found - trying music library")
-    if music_path is None:
+    if music_path is None and not no_music:
         music_path = _pick_music(args.short, script.title, script.tags)
     if music_path:
         from pipeline import music_match as _mm
