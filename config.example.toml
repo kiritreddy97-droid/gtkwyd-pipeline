@@ -61,7 +61,8 @@ enabled = true
 # Shown on the thumbnail's top-right corner.
 channel_name = "INDIAN HISTORIC STORIES (TELUGU)"
 # "unlisted" while you check the first few episodes, then change to "public".
-visibility = "unlisted"
+# Public from 2026-10-28 (new uploads only; older videos stay unlisted).
+visibility = "public"
 # Any Gemini Flash model; if this name is retired the writer picks a current one.
 gemini_model = "gemini-2.5-flash"
 playlist_id = ""
