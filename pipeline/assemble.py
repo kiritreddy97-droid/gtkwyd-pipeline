@@ -178,9 +178,14 @@ def finalize(scene_finals: list[Path], music: Path | None, ass: Path | None,
     cmd = [FFMPEG, "-y", "-i", body.name]
     filt: list[str] = []
     vlabel = "0:v"
+    vin = "[0:v]"
+    if cfg.get("visuals", {}).get("fx"):
+        # moving film grain + a soft vignette: keeps every frame alive and ties the clips together
+        filt.append("[0:v]noise=alls=7:allf=t+u,vignette=angle=PI/5[fx0]")
+        vin, vlabel = "[fx0]", "[fx0]"
     if ass is not None:
         ass_arg = ass.name + (":fontsdir=." if have_fonts else "")
-        filt.append(f"[0:v]ass={ass_arg}[v]")
+        filt.append(f"{vin}ass={ass_arg}[v]")
         vlabel = "[v]"
 
     # Audio: even out the narration level (gently - a big dynaudnorm gain

@@ -123,7 +123,9 @@ def main() -> int:
         cfg.setdefault("visuals", {})["prefer_animation"] = False  # history needs real imagery
         channel = cfg.get("telugu", {}).get("channel_name", channel)
         # Bigger camera moves so the pictures read as video, not slides (Shorts most).
-        cfg["visuals"]["parallax_punch"] = 1.8 if args.short else 1.3
+        cfg["visuals"]["parallax_punch"] = 2.2 if args.short else 1.3
+        if args.short:
+            cfg["visuals"]["fx"] = True  # live film grain + vignette over everything
     # Small per-render jitter around the configured base values, so two
     # videos using the same voice still don't come out sounding identical.
     length_scale = max(0.85, float(vcfg.get("length_scale", 1.0)) + random.uniform(-0.04, 0.05))
@@ -225,7 +227,16 @@ def main() -> int:
             # fallback for any scene where drawing isn't possible or fails.
             if scene.art and art_ok:
                 made: list[Asset] = []
-                for j, prompt in enumerate(scene.art):
+                arts = scene.art
+                broll = None
+                if args.short and lang != "en":
+                    # Telugu Shorts: one AI picture + one real moving clip per scene, so the
+                    # picture changes every ~2 s and half of it is genuine video motion.
+                    broll = fetcher.fetch_video(scene.queries)
+                    if broll:
+                        arts = scene.art[:1]
+                        print(f"      stock video: {broll.query}")
+                for j, prompt in enumerate(arts):
                     print(f"      art: {prompt[:78]}")
                     try:
                         p = illustrate.generate(
@@ -240,6 +251,9 @@ def main() -> int:
                 if made:
                     assets = made
                     sources.add("ai")
+                    if broll:
+                        assets = [made[0], broll] if i % 2 == 0 else [broll, made[0]]
+                        sources.add(broll.source)
             if not assets:
                 for q in scene.queries:
                     print(f"      stock: {q}")

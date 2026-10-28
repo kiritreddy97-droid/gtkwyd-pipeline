@@ -141,6 +141,23 @@ class VisualFetcher:
             )
         self._counter = 0
 
+    def fetch_video(self, queries: list[str]) -> Asset | None:
+        """A real stock VIDEO clip for the first query that has one, else None (never a
+        photo: callers use this to add genuine motion between AI pictures)."""
+        for q in queries:
+            for step in ((_pexels_video, self.pexels, self.orientation),
+                         (_pixabay_video, self.pixabay)):
+                fn, key, *rest = step
+                if not key:
+                    continue
+                try:
+                    asset = fn(q, key, *rest)
+                except requests.RequestException:
+                    continue
+                if asset:
+                    return asset
+        return None
+
     def fetch(self, query: str) -> Asset:
         self._counter += 1
         want_video = self.prefer == "video" or (
