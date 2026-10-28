@@ -101,6 +101,10 @@ def check_content_available(fmt: str) -> tuple[bool, str]:
     left = ideas.remaining(topics_file) if topics_file.exists() else 0
     if left > 0:
         return True, f"bank empty, but {left} topic(s) left for the AI writer"
+    from . import writer_te
+    if writer_te.available():
+        return True, (f"{topics_file.name} is empty, but Gemini refills it automatically "
+                      f"when the slot runs")
     return False, (f"no {fmt} scripts left in bank/ready AND "
                    f"{topics_file.name} is also exhausted - nothing left to publish")
 

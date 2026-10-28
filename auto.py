@@ -130,7 +130,8 @@ def pick(fmt: str, source: str, cfg: dict) -> tuple[Path, str] | None:
     if bank:
         return bank, "bank"
 
-    # AI fallback from the topic queue
+    # AI fallback from the topic queue (topped up from Gemini when it runs low)
+    ideas.refill_if_low(d["topics"], fmt)
     topic = ideas.next_topic(d["topics"])
     if not topic:
         log(f"[{fmt}] bank empty and {d['topics'].name} exhausted - nothing to do")
