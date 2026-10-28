@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+from itertools import zip_longest
 import shutil
 import sys
 import traceback
@@ -123,7 +124,7 @@ def main() -> int:
         cfg.setdefault("visuals", {})["prefer_animation"] = False  # history needs real imagery
         channel = cfg.get("telugu", {}).get("channel_name", channel)
         # Bigger camera moves so the pictures read as video, not slides (Shorts most).
-        cfg["visuals"]["parallax_punch"] = 2.2 if args.short else 1.3
+        cfg["visuals"]["parallax_punch"] = 2.2 if args.short else 1.6
         if args.short:
             cfg["visuals"]["fx"] = True  # live film grain + vignette over everything
     # Small per-render jitter around the configured base values, so two
@@ -248,12 +249,23 @@ def main() -> int:
                         print(f"      art failed ({e}); using stock footage for this scene")
                         made = []
                         break
+                clips: list[Asset] = []
+                if made and lang != "en" and not args.short:
+                    # Telugu stories: real moving clips woven between the pictures, so a
+                    # picture never stays up for more than ~10 s.
+                    for q in scene.queries[:2]:
+                        c = fetcher.fetch_video([q])
+                        if c and c.path not in [x.path for x in clips]:
+                            clips.append(c)
                 if made:
                     assets = made
                     sources.add("ai")
                     if broll:
                         assets = [made[0], broll] if i % 2 == 0 else [broll, made[0]]
                         sources.add(broll.source)
+                    elif clips:
+                        assets = [a for pair in zip_longest(made, clips) for a in pair if a]
+                        sources.update(c.source for c in clips)
             if not assets:
                 for q in scene.queries:
                     print(f"      stock: {q}")
