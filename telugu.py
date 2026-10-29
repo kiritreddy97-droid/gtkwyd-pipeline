@@ -316,6 +316,16 @@ def run_drama(dry_run: bool) -> int:
         mp4 = drama.render(ep, BUILD_DIR / "drama-daily-work", cfg, require_gemini=True,
                            seed_base=77 + 100 * series.get("season", 1) + 13 * n)
     except Exception as e:  # noqa: BLE001
+        if "Gemini voices unavailable" in str(e):
+            # The free voice quota is shared with the story and Short and resets overnight, so
+            # retrying today just fails again. Skip today (no failure email) and carry on tomorrow.
+            log(f"[te-drama] today's free Gemini voice quota is used up - skipping today: {e}")
+            if not dry_run:
+                entry = _new_entry("te-drama", f"drama-s{series.get('season', 1)}-e{n}", "",
+                                   "", f"season {series.get('season', 1)} ep {n}", "")
+                entry["status"] = "deferred_quota"
+                _record(entry)
+            return 0
         log(f"[te-drama] render failed (will retry): {e}"); return 1
     video = out_dir / "episode.mp4"
     shutil.copy(mp4, video)

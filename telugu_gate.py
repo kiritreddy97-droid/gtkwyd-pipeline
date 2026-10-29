@@ -33,8 +33,11 @@ def decide(now_et: dt.datetime, manual: bool, rows: list[dict]) -> tuple[bool, s
     if now_et.hour < 12:
         return False, f"{now_et:%H:%M} ET is before 12:00 ET"
     today = now_et.date().isoformat()
+    # a drama episode skipped because the free voice quota ran out counts as done for today
     done = {r.get("format") for r in rows
-            if r.get("status") == "uploaded" and r.get("ts") and et_date(r["ts"]) == today}
+            if r.get("ts") and et_date(r["ts"]) == today
+            and (r.get("status") == "uploaded"
+                 or (r.get("format") == "te-drama" and r.get("status") == "deferred_quota"))}
     need = {"te-video", "te-short", "te-drama"}
     if need <= done:
         return False, "today's story, Short and drama episode are already uploaded"
