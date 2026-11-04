@@ -32,7 +32,13 @@ jobs:
       - name: Install Python deps
         run: pip install -q -r requirements.txt
       - name: Write config.toml
-        run: cp config.example.toml config.toml
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+        run: |
+          sed -e "s#^pexels_key = .*#pexels_key = \"$PEXELS_KEY\"#" \
+              -e "s#^pixabay_key = .*#pixabay_key = \"$PIXABAY_KEY\"#" \
+              config.example.toml > config.toml
       - name: Render
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
