@@ -57,6 +57,7 @@ class Script:
     lang: str = "en"
     thumb_text: str = ""
     style: str = ""  # optional narration-delivery direction for the expressive voice
+    format: str = ""  # "explainer" = "how it's made / how it works" 3D-style Short
 
 
 def _parse_frontmatter(block: str) -> dict:
@@ -142,4 +143,5 @@ def parse_script_text(text: str, fallback_title: str = "Untitled") -> Script:
         lang=(meta.get("lang") or "en").strip().lower(),
         thumb_text=(meta.get("thumb_text") or "").strip(),
         style=(meta.get("style") or "").strip(),
+        format=(meta.get("format") or "").strip().lower(),
     )

@@ -42,6 +42,10 @@ EN_STYLE_SHORT = ("Narrate like an energetic, engaging creator hooking viewers i
                   "surprising part." + _EN_COMMON)
 EN_STYLE_REEL = ("Narrate like a friendly, expressive storyteller speaking to camera for a "
                  "short vertical video." + _EN_COMMON)
+# "How it's made / how it works" explainers: clean 3D product renders and cutaways.
+EXPLAINER_ART_STYLE = ("3D render, clean studio lighting, realistic materials, detailed "
+                       "cutaway view, shallow depth of field, vibrant colors, no text, no "
+                       "watermark")
 # Telugu Shorts are drawn like the drama episodes (cleaner faces than the painterly look).
 SHORT_ART_STYLE = ("Pixar-style 3D animated film still, glossy, warm cinematic lighting, "
                    "dramatic, simple clean composition, no text")
@@ -120,9 +124,15 @@ def main() -> int:
                             fallback=vcfg.get("model", DEFAULT_VOICE),
                             engine=engine, lang=lang)
     use_edge = voice_name.startswith(EDGE_PREFIX)
+    explainer = script.format == "explainer"
+    # Telugu Shorts and "how it's made" explainers: a new picture every ~2 s, half of it
+    # real moving stock clips, big camera moves.
+    mixed_short = args.short and (lang != "en" or explainer)
     if lang != "en":
         cfg.setdefault("visuals", {})["prefer_animation"] = False  # history needs real imagery
         channel = cfg.get("telugu", {}).get("channel_name", channel)
+    if lang != "en" or explainer:
+        cfg.setdefault("visuals", {})
         # Bigger camera moves so the pictures read as video, not slides (Shorts most).
         cfg["visuals"]["parallax_punch"] = 2.2 if args.short else 1.6
         if args.short:
@@ -230,7 +240,7 @@ def main() -> int:
                 made: list[Asset] = []
                 arts = scene.art
                 broll = None
-                if args.short and lang != "en":
+                if mixed_short:
                     # Telugu Shorts: one AI picture + one real moving clip per scene, so the
                     # picture changes every ~2 s and half of it is genuine video motion.
                     broll = fetcher.fetch_video(scene.queries)
@@ -243,7 +253,8 @@ def main() -> int:
                         p = illustrate.generate(
                             prompt, workdir / f"art_{i:02d}_{j}.jpg", portrait=(w < h),
                             model=art_model, steps=art_steps, seed=1000 * i + j,
-                            style=(SHORT_ART_STYLE if args.short and lang != "en" else None))
+                            style=(EXPLAINER_ART_STYLE if explainer
+                                   else SHORT_ART_STYLE if mixed_short else None))
                         made.append(Asset(p, "image", prompt, "ai"))
                     except PipelineError as e:
                         print(f"      art failed ({e}); using stock footage for this scene")

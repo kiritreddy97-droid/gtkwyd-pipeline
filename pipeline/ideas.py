@@ -78,9 +78,18 @@ def refill_if_low(path: Path, kind: str, model: str | None = None, n: int = 40) 
                   "You Don't': surprising, well-established facts from science, technology, "
                   "psychology, nature, history and everyday life. Nothing medical, financial, "
                   "political or controversial.")
+        example = "the Zeigarnik effect and unfinished tasks"
+        if kind == "product":
+            shape = ("a physical product or everyday thing whose manufacturing or inner workings "
+                     "are fascinating (consumer goods, food, materials, machines, tools, "
+                     "clothing, electronics, vehicles, packaging)")
+            system = ("You suggest products for a 'how it's made / how it works' explainer "
+                      "channel. Pick very different kinds of products. Family-friendly, nothing "
+                      "dangerous to make at home, no weapons or drugs.")
+            example = "a zipper"
         out = writer_te._call(
             system, f"Give {n} new topics as short lower-case one-line phrases, each {shape}, "
-                    f"in the style of 'the Zeigarnik effect and unfinished tasks'. Do NOT repeat "
+                    f"in the style of '{example}'. Do NOT repeat "
                     f"or closely resemble any of these: {avoid}",
             writer_te._TOPICS_SCHEMA, model or writer_te.DEFAULT_MODEL,
             max_tokens=4000, temperature=0.9)

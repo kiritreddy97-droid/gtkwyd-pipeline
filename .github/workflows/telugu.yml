@@ -24,7 +24,7 @@ on:
       kind:
         description: "daily (story + Short), long, short, selftest (renders a bundled sample, no Gemini/YouTube needed), or gemini-check (lists which Gemini models your key can use)"
         type: choice
-        options: [daily, long, short, drama, selftest, gemini-check, media-check, drama-test, parallax-test]
+        options: [daily, long, short, drama, explainer-en, explainer-te, selftest, gemini-check, media-check, drama-test, parallax-test]
         default: daily
       dry_run:
         description: "render only, do not upload"
@@ -144,7 +144,11 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if [ "${{ steps.kind.outputs.kind }}" = "drama-test" ] || [ "${{ steps.kind.outputs.kind }}" = "parallax-test" ]; then
+          if [ "${{ steps.kind.outputs.kind }}" = "explainer-en" ]; then
+            python explainer.py --lang en --dry-run
+          elif [ "${{ steps.kind.outputs.kind }}" = "explainer-te" ]; then
+            python explainer.py --lang te --dry-run
+          elif [ "${{ steps.kind.outputs.kind }}" = "drama-test" ] || [ "${{ steps.kind.outputs.kind }}" = "parallax-test" ]; then
             python telugu.py --kind "${{ steps.kind.outputs.kind }}"
           elif [ "${{ steps.kind.outputs.dry }}" = "true" ]; then
             python telugu.py --kind "${{ steps.kind.outputs.kind }}" --dry-run
@@ -170,6 +174,7 @@ jobs:
           git config user.name "gtkwyd-bot"
           git config user.email "actions@users.noreply.github.com"
           for p in history-telugu.jsonl series-drama.json topics_used.txt topics-telugu-history.txt \
+                   topics-explainers.txt scripts/_generated-explainers \
                    scripts/_generated-telugu scripts/telugu-shorts-queue scripts/published; do
             git add "$p" 2>/dev/null || true
           done

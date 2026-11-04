@@ -1,0 +1,23 @@
+# Products for the "how it's made / how it works" explainer Shorts (explainer.py).
+# One per line; consumed top-down. When this runs low, Gemini adds more automatically.
+
+a pencil
+a zipper
+a glass bottle
+a pair of jeans
+a lightbulb
+a paper clip
+a ball-point pen
+chocolate
+a car tyre
+a smartphone screen
+a steel nail
+a soap bar
+a wristwatch
+a mirror
+instant noodles
+a plastic bottle
+a battery
+a ceramic coffee mug
+a bicycle chain
+sugar
