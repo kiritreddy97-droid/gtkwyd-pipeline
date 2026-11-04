@@ -24,7 +24,7 @@ on:
       kind:
         description: "daily (story + Short), long, short, selftest (renders a bundled sample, no Gemini/YouTube needed), or gemini-check (lists which Gemini models your key can use)"
         type: choice
-        options: [daily, long, short, drama, explainer-en, explainer-te, selftest, gemini-check, media-check, drama-test, parallax-test]
+        options: [daily, long, short, drama, explainer-en, explainer-te, showcase, selftest, gemini-check, media-check, drama-test, parallax-test]
         default: daily
       dry_run:
         description: "render only, do not upload"
@@ -144,7 +144,9 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if [ "${{ steps.kind.outputs.kind }}" = "explainer-en" ]; then
+          if [ "${{ steps.kind.outputs.kind }}" = "showcase" ]; then
+            python showcase.py showcase/glass-bottle
+          elif [ "${{ steps.kind.outputs.kind }}" = "explainer-en" ]; then
             python explainer.py --lang en --dry-run
           elif [ "${{ steps.kind.outputs.kind }}" = "explainer-te" ]; then
             python explainer.py --lang te --dry-run
