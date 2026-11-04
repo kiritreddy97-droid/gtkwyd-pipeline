@@ -36,6 +36,7 @@ from .util import PipelineError
 
 _QUERY_RE = re.compile(r"\[\[(.+?)\]\]")
 _ART_RE = re.compile(r"\{\{(.+?)\}\}")  # {{AI illustration prompt}}
+_CLIP_RE = re.compile(r"<<clip:(.+?)>>")  # <<clip:scene_01.mp4>> = use your own video clip
 
 
 @dataclass
@@ -44,6 +45,7 @@ class Scene:
     narration: str
     queries: list[str] = field(default_factory=list)
     art: list[str] = field(default_factory=list)
+    clip: str = ""  # optional video clip file (e.g. made in Google Flow) shown for this scene
 
 
 @dataclass
@@ -99,13 +101,14 @@ def parse_script_text(text: str, fallback_title: str = "Untitled") -> Script:
         raw = "\n".join(buf).strip()
         queries = [q.strip() for q in _QUERY_RE.findall(raw) if q.strip()]
         art = [a.strip() for a in _ART_RE.findall(raw) if a.strip()]
-        narration = _ART_RE.sub("", _QUERY_RE.sub("", raw))
+        clip = next((c.strip() for c in _CLIP_RE.findall(raw) if c.strip()), "")
+        narration = _CLIP_RE.sub("", _ART_RE.sub("", _QUERY_RE.sub("", raw)))
         narration = re.sub(r"\[[^\]]*\]", "", narration)  # drop stray [directions]
         narration = re.sub(r"\s+", " ", narration).strip()
         if not narration:
             return
         scenes.append(Scene(heading=heading or f"Scene {len(scenes) + 1}",
-                            narration=narration, queries=queries, art=art))
+                            narration=narration, queries=queries, art=art, clip=clip))
 
     for line in body.splitlines():
         m = re.match(r"^\s{0,3}#{2,3}\s+(.*)$", line)

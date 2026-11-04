@@ -237,7 +237,19 @@ def main() -> int:
 
         slide_text = None
         assets: list[Asset] = []
-        if args.no_stock:
+        clip_asset = None
+        if scene.clip:  # a video the user made (e.g. in Google Flow), next to the script
+            cp = Path(args.script).resolve().parent / scene.clip
+            if cp.exists():
+                clip_asset = Asset(cp, "video", scene.heading, "flow")
+            else:
+                print(f"      clip {scene.clip} not found next to the script - using pictures")
+        if clip_asset:
+            assets = [clip_asset]
+            sources.add("flow")
+            if first_asset is None:
+                first_asset = clip_asset
+        elif args.no_stock:
             slide_text = scene.heading
         else:
             # AI illustrations first (they match the story); stock footage is the

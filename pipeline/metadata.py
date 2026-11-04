@@ -65,8 +65,10 @@ def generate(script, scene_starts: list[float], total: float, sources: set[str],
             "see the world.\n\nChapters:\n" + "\n".join(chapters)
         )
 
-    stock = sorted(s.title() for s in sources if s not in ("solid", "ai"))
+    stock = sorted(s.title() for s in sources if s not in ("solid", "ai", "flow"))
     parts = []
+    if "flow" in sources:
+        parts.append("AI-generated video (Google Flow / Veo)")
     if "ai" in sources:
         parts.append("AI-generated illustrations")
     if stock:
