@@ -204,3 +204,4 @@ a pencil
 a zipper
 a glass bottle
 a pair of jeans
+a lightbulb
