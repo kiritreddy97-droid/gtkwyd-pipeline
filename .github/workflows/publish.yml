@@ -21,7 +21,8 @@ on:
     - cron: "9 14 * * 1-5"    # short-8am  (~8:09am Mountain)
     - cron: "12 20 * * 1-5"   # short-2pm  (~2:12pm Mountain)
     - cron: "7 2 * * 2-6"     # short-8pm  (~8:07pm Mountain - see UTC day-shift note above)
-    - cron: "34 8 * * 1-5"    # short-2am  (~2:34am Mountain)
+    # short-2am (34 8 * * 1-5) retired: the daily explainer (explainer.yml) takes its YouTube
+    # upload slot, which keeps the channel inside the 10,000-unit daily API quota.
   workflow_dispatch:
     inputs:
       format:

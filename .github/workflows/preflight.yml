@@ -14,7 +14,7 @@ on:
     - cron: "4 14 * * 1-5"    # 5 min before short-8am   (14:09 UTC)
     - cron: "7 20 * * 1-5"    # 5 min before short-2pm   (20:12 UTC)
     - cron: "2 2 * * 2-6"     # 5 min before short-8pm   (02:07 UTC, see publish.yml's day-shift note)
-    - cron: "29 8 * * 1-5"    # 5 min before short-2am   (08:34 UTC)
+    # short-2am check retired together with the slot (see publish.yml)
   workflow_dispatch:
     inputs:
       format:

@@ -625,6 +625,18 @@ def publish_reel(video_path: Path, slug: str, title: str, category: str,
                                f"reel-{category}")
 
 
+def publish_explainer(video_path: Path, slug: str, title: str, hook: str,
+                      cfg: dict) -> dict | None:
+    """Post a 'how it's made' explainer Short as a Reel (and a Story)."""
+    handle = cfg.get("social", {}).get("youtube_handle", "").strip()
+    lines = [title, "", hook, "", "A new product explained every day - follow so you don't miss one."]
+    if handle:
+        lines.append(f"More like this: {handle}")
+    lines += ["", "#howitsmade #howitworks #explained #manufacturing #science"]
+    return _publish_full_video(video_path, slug, "\n".join(l for l in lines if l is not None),
+                               None, cfg, "explainer")
+
+
 def post_image(image_url: str, caption: str) -> str:
     """Post a single feed image (not a Reel/video). Image containers on the
     Graph API are typically ready near-instantly, so this uses a short
