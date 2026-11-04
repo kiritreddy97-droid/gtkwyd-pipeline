@@ -1,94 +1,23 @@
 {
- "season": 1,
+ "season": 2,
  "characters": [
   {
-   "name": "Raju",
+   "name": "Appanna",
    "gender": "male",
-   "look": "A 32-year-old skinny Indian auto-driver with a mustache, medium brown skin, wearing a khaki auto driver shirt over a white vest."
+   "look": "Appanna, a 65-year-old Indian man with a round friendly face, deep laugh lines, short neatly combed white hair, a thick white mustache, wearing a crisp white cotton shirt and light grey veshti"
   },
   {
-   "name": "Lakshmi",
+   "name": "Chitti",
    "gender": "female",
-   "look": "A 28-year-old traditional Indian woman with long black hair tied in a braid, wearing a simple yellow cotton saree with a red border."
-  },
-  {
-   "name": "Srinivas",
-   "gender": "male",
-   "look": "A 50-year-old well-dressed Indian man with grey hair, thick glasses, wearing a crisp light blue buttoned shirt."
+   "look": "Chitti, a lively 10-year-old Indian girl with bright expressive eyes, long black hair tied in two pigtails with red ribbons, wearing a bright yellow cotton dress"
   }
  ],
  "episodes": [
   {
    "n": 1,
-   "title": "రాత్రి వచ్చిన రూపాయి",
-   "title_en": "The Bag of Hope",
-   "summary": "Raju finds a large bag of money forgotten in his auto-rickshaw, which his wife Lakshmi begs him to keep for their daughter's urgent school fees. Just as Raju decides whether to keep it or hand it to the police, an elderly passenger appears at their front door demanding his bag."
-  },
-  {
-   "n": 2,
-   "title": "అతని నిజాయితీ",
-   "title_en": "His Honesty",
-   "summary": "Raju and Lakshmi return the bag of money to Srinivas, who came looking for it. Touched by their immense honesty, Srinivas insists on helping pay for their daughter's school fees."
-  },
-  {
-   "n": 3,
-   "title": "అసలు నిజం",
-   "title_en": "The Real Truth",
-   "summary": "Srinivas insists on helping pay for Raju's daughter's education as a reward for their honesty, but a sudden arrival at the door interrupts their conversation. This sets up a mysterious new twist for the final part of their journey."
-  },
-  {
-   "n": 4,
-   "title": "నిజమైన గెలుపు",
-   "title_en": "The Real Victory",
-   "summary": "Raju, Lakshmi, and Srinivas celebrate the joyful resolution of their daughter's education. Srinivas promises his continuous support, proving that honesty always brings the best rewards."
-  },
-  {
-   "n": 5,
-   "title": "నిజాయితీ గెలిచింది",
-   "title_en": "Honesty Wins",
-   "summary": "Raju, Lakshmi, and Srinivas celebrate the joyful admission of Raju's daughter to school. The story concludes warmly, proving that honesty is the greatest virtue."
-  },
-  {
-   "n": 6,
-   "title": "అనుకోని అతిథి",
-   "title_en": "Unexpected Guest",
-   "summary": "Srinivas returns to Raju and Lakshmi's house with a mysterious gift to further help their family. As Raju reaches out to open the box, they wonder what surprising new turn their lives are about to take."
-  },
-  {
-   "n": 7,
-   "title": "అకస్మాత్తుగా అందిన కానుక",
-   "title_en": "The Surprise Gift",
-   "summary": "Raju and Lakshmi open the mysterious box brought by Srinivas and are stunned to find an unexpected surprise inside. As they uncover more secrets, a new twist awaits them."
-  },
-  {
-   "n": 8,
-   "title": "అసలైన రహస్యం",
-   "title_en": "The Real Secret",
-   "summary": "Raju and Lakshmi hesitate to accept a mysterious gift from Srinivas, but he insists it is for their daughter's future. As Raju finally opens the box, a shocking surprise is revealed inside."
-  },
-  {
-   "n": 9,
-   "title": "అసలైన నిధి",
-   "title_en": "The Real Treasure",
-   "summary": "Raju and Lakshmi were stunned to find gold bangles inside the mysterious box, but Srinivas reassured them it was a well-deserved reward for their honesty. The story concludes happily with their family's future secured."
-  },
-  {
-   "n": 10,
-   "title": "సంచార గ్రలాయం",
-   "title_en": "The Mobile Library",
-   "summary": "Srinivas proposes starting a mobile library for the village children using an unexpected vehicle. Raju and Lakshmi are shocked when Srinivas reveals his clever plan for their auto-rickshaw."
-  },
-  {
-   "n": 11,
-   "title": "మొబైల్ లైబ్రరీ ఆరంభం",
-   "title_en": "The Mobile Library Begins",
-   "summary": "Srinivas explains that the mobile library will only run in the evenings, bringing both extra income to Raju and education to the village children. However, the next morning, Raju discovers an unexpected problem with his auto right before launch."
-  },
-  {
-   "n": 12,
-   "title": "అసలైన ప్రయాణం",
-   "title_en": "The Real Journey",
-   "summary": "Raju overcomes his auto trouble with the help of Srinivas and the villagers. The mobile library successfully launches, bringing joy and education to the village children for a happy ending."
+   "title": "రిపోర్ట్ కార్డ్ రహస్యం",
+   "title_en": "The Report Card Secret",
+   "summary": "Appanna tries to inspect a hidden item under a plate, believing it to be a sweet box. Chitti panics and reveals it is actually her report card containing a zero in math just as her father arrives."
   }
  ]
 }
