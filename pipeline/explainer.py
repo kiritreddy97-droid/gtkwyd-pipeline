@@ -32,12 +32,13 @@ No medical, financial or political content.
 LANGUAGE: {language_rule}
 
 PICTURES: each scene's "image_prompts" are 2 ENGLISH descriptions of two different moments of
-that step, as a clean 3D render: the raw material, the machine, a cutaway of the inside, a
-close-up of the part being made. One or two large subjects, simple background. No people's
-faces (hands or silhouettes are fine), no text, no labels, no logos, no readable signs.
-Each scene's "queries" are 2 short ENGLISH search phrases for REAL factory or process stock
-footage that fits the step (for example "factory assembly line", "molten metal pouring",
-"cutting wood in a sawmill"). Nothing with named people or brands.
+that step, as a clean 3D render. They must be LITERAL: name the product or material in every
+prompt and show exactly what the sentence says (for example "a yellow wooden pencil lying on a
+workbench, pencil shavings", "a cutaway of a pencil showing the dark graphite core inside the
+wood", "a steel cutting blade slicing a block of cedar wood"). One recognisable main subject,
+simple clean background, no abstract shapes, no crowds. No people's faces (hands are fine),
+no text, no labels, no logos, no readable signs. Keep each prompt under 35 words.
+Each scene's "queries" are 2 short ENGLISH phrases naming the exact object or step.
 
 "title": a curiosity-driven title under 70 characters ({title_rule}). "title_en": the English
 working title. "thumb_text": 2-3 words. "description_hook": one intriguing sentence.

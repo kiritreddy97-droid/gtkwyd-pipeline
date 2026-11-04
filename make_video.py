@@ -240,7 +240,7 @@ def main() -> int:
                 made: list[Asset] = []
                 arts = scene.art
                 broll = None
-                if mixed_short:
+                if mixed_short and not explainer:  # stock clips never fit a specific product
                     # Telugu Shorts: one AI picture + one real moving clip per scene, so the
                     # picture changes every ~2 s and half of it is genuine video motion.
                     broll = fetcher.fetch_video(scene.queries)
