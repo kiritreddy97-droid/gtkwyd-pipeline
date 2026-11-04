@@ -20,9 +20,16 @@ def render_slide(text: str, w: int, h: int, dest: Path) -> Path:
 
     img = Image.new("RGB", (w, h), (14, 17, 22))
     draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("arialbd.ttf", round(h * 0.06))
-    except OSError:
+    font = None
+    # Arial on Windows; the bundled Anton on the Linux cloud runner (the PIL default font
+    # is a tiny bitmap, which made outro cards nearly unreadable there).
+    for cand in ("arialbd.ttf", str(ASSETS_DIR / "fonts" / "Anton-Regular.ttf")):
+        try:
+            font = ImageFont.truetype(cand, round(h * (0.06 if cand.startswith("arial") else 0.075)))
+            break
+        except OSError:
+            continue
+    if font is None:
         font = ImageFont.load_default()
     words, lines, cur = text.split(), [], ""
     for word in words:

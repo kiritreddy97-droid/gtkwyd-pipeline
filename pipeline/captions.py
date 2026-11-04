@@ -164,7 +164,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         big = 0.075 if len(title) <= 12 else 0.055 if len(title) <= 18 else 0.042
         body.append(
             f"Dialogue: 1,{_fmt_ass(0.05)},{_fmt_ass(card_secs)},Card,,0,0,0,,"
-            f"{{\\fad(120,250)\\fs{round(h * 0.026)}\\c{orange}}}{kicker}\\N"
+            f"{{\\fad(120,250)\\fs{round(h * 0.036)}\\c{orange}}}{kicker}\\N"
             f"{{\\fs{round(h * big)}\\c{white}}}{title}")
     for g in groups:  # g = [(start, end, token), ...] for one on-screen line
         for k, (s, e, _tok) in enumerate(g):
