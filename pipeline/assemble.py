@@ -128,7 +128,9 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
         share = dur / n
         segs = []
         from . import parallax
-        use_px = bool(cfg.get("visuals", {}).get("parallax", False)) and parallax.available()
+        flat = bool(cfg.get("visuals", {}).get("parallax_flat", False))
+        use_px = bool(cfg.get("visuals", {}).get("parallax", False)) and (
+            flat or parallax.available())
         for j, asset in enumerate(assets):
             out_seg = workdir / f"seg_{idx:02d}_{j:02d}.mp4"
             if use_px and asset.kind == "image" and asset.source == "ai":
@@ -136,7 +138,8 @@ def build_scene(idx: int, narration_wav: Path, assets: list, cfg: dict,
                     segs.append(parallax.render_clip(asset.path, out_seg, max(0.6, share),
                                                      w, h, fps, move=(idx + j) % 4,
                                                      punch=float(cfg.get("visuals", {})
-                                                                 .get("parallax_punch", 1.0))))
+                                                                 .get("parallax_punch", 1.0)),
+                                                     flat=flat))
                     continue
                 except Exception as e:  # noqa: BLE001 - fall back to the plain zoom
                     print(f"      parallax failed ({e}); using a plain zoom")

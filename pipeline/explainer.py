@@ -41,7 +41,9 @@ no text, no labels, no logos, no readable signs. Keep each prompt under 35 words
 Each scene's "queries" are 2 short ENGLISH phrases naming the exact object or step.
 
 "title": a curiosity-driven title under 70 characters ({title_rule}). "title_en": the English
-working title. "thumb_text": 2-3 words. "description_hook": one intriguing sentence.
+working title. "thumb_text": the product's short name, 1-3 words, in the narration language
+(shown big on screen in the first seconds, e.g. "Glass Bottle"). "description_hook": one
+intriguing sentence.
 "tags": 8-12 items: the first four English ("how it's made", "how it works",
 "manufacturing", "explained"), then the product and related words.
 """
@@ -100,8 +102,21 @@ def generate(topic: str, lang: str = "en", model: str = writer_te.DEFAULT_MODEL,
     raise PipelineError(f"no acceptable explainer after {attempts} tries: {last}")
 
 
+_CARD = {
+    "en": dict(card_kicker="HOW IT'S MADE",
+               outro_display="So.|That's.|How.",
+               outro_spoken="So, that's how it all comes together. Follow for more!"),
+    "te": dict(card_kicker="ఎలా తయారవుతుంది?",
+               outro_display="అలా.|తయారవుతుంది.",
+               outro_spoken="అలా తయారవుతుంది. ఇలాంటివి మరిన్ని కావాలంటే ఫాలో అవ్వండి!"),
+}
+
+
 def to_markdown(data: dict, lang: str) -> str:
     md = writer_te.to_markdown(data)
-    extra = f"lang: {lang}\nformat: explainer"
+    card = dict(_CARD[lang])
+    card["card_title"] = " ".join(str(data.get("thumb_text") or data.get("title_en", "")).split())[:28]
+    extra = "\n".join([f"lang: {lang}", "format: explainer"]
+                      + [f"{k}: {v}" for k, v in card.items()])
     md = md.replace("\nlang: te\n", f"\n{extra}\n", 1)
     return md

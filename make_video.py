@@ -137,6 +137,9 @@ def main() -> int:
         cfg["visuals"]["parallax_punch"] = 2.2 if args.short else 1.6
         if args.short:
             cfg["visuals"]["fx"] = True  # live film grain + vignette over everything
+    if explainer:
+        # smooth whole-picture glides (no depth warping) and no grain: nothing may look glitchy
+        cfg["visuals"].update(parallax_flat=True, fx=False, parallax_punch=1.5)
     # Small per-render jitter around the configured base values, so two
     # videos using the same voice still don't come out sounding identical.
     length_scale = max(0.85, float(vcfg.get("length_scale", 1.0)) + random.uniform(-0.04, 0.05))
@@ -176,6 +179,9 @@ def main() -> int:
     # if it fails for any segment the WHOLE video is redone with the Edge voice.
     outro_spoken = OUTRO_SPOKEN if lang == "en" else OUTRO_SPOKEN_TE
     outro_display = OUTRO_DISPLAY if lang == "en" else OUTRO_DISPLAY_TE
+    if explainer and script.meta.get("outro_spoken"):  # "So, that's how ... Follow for more"
+        outro_spoken = script.meta["outro_spoken"]
+        outro_display = script.meta.get("outro_display", outro_display).replace("|", "\n")
     seg_texts = [sc.narration for sc in script.scenes] + [outro_spoken]
     seg_wavs = [workdir / "narration" / f"scene_{i:02d}.wav" for i in range(len(seg_texts))]
     seg_timings = None
@@ -314,8 +320,10 @@ def main() -> int:
     if cfg.get("captions", {}).get("enabled", True) and not args.no_captions:
         if all(t is not None for t, _, _ in scene_timings):
             print("[captions] from the voice's own word timings ...")
+            card = ((script.meta.get("card_kicker", ""), script.meta.get("card_title", ""))
+                    if explainer and script.meta.get("card_title") else None)
             cap = captions.generate_from_timings(scene_timings, workdir, slug, w, h,
-                                                 cfg, lang)
+                                                 cfg, lang, highlight=explainer, card=card)
         else:
             print("[captions] transcribing narration ...")
             cap = captions.generate(scene_wavs, workdir, slug, w, h, cfg)

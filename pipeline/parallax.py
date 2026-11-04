@@ -52,7 +52,7 @@ def depth_map(img_path: Path):
 
 
 def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, fps: int,
-                move: int = 0, depth=None, punch: float = 1.0) -> Path:
+                move: int = 0, depth=None, punch: float = 1.0, flat: bool = False) -> Path:
     """Render `seconds` of camera move over the image into out_mp4 (no audio).
     `move` picks the camera path: 0 push-in, 1 pan right, 2 pull-out, 3 pan left.
     `punch` scales how big the move is (1.0 = gentle; Shorts use more so they read as video)."""
@@ -63,7 +63,10 @@ def render_clip(img_path: Path, out_mp4: Path, seconds: float, w: int, h: int, f
     if img is None:
         raise PipelineError(f"cannot read {img_path}")
     img = cv2.resize(img, (w, h), interpolation=cv2.INTER_LANCZOS4)
-    d = depth if depth is not None else depth_map(img_path)
+    if flat:  # no depth layers: the whole picture glides as one piece (smooth, no warping)
+        d = np.full((h, w), 0.9, dtype=np.float32)
+    else:
+        d = depth if depth is not None else depth_map(img_path)
     d = cv2.resize(d.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
     # RIGID LAYERS: a smoothly varying depth bends faces (the nose "shifts" more than the
     # ear). So merge each object into a blob (median filter), snap depth to a few discrete

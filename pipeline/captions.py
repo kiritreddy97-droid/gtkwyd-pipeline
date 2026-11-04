@@ -134,9 +134,52 @@ def _tokens_with_punctuation(timings: list, text: str) -> list:
     return out if i == len(src) else list(timings)
 
 
+def _write_ass_highlight(groups: list[list], path: Path, w: int, h: int, font: str,
+                         size_scale: float, card: tuple[str, str] | None,
+                         card_secs: float = 2.8) -> None:
+    """Explainer-style captions: a short line of 2-3 words with the word being spoken in
+    orange, plus an optional opening title card (small orange kicker + big white title)."""
+    fontsize = round(h * 0.05 * size_scale)
+    margin_v = round(h * 0.27)
+    outline = max(3, round(fontsize * 0.1))
+    orange, white = "&H0080FF&", "&HFFFFFF&"
+    header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: {w}
+PlayResY: {h}
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Caption,{font},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,{outline},1,2,80,80,{margin_v},1
+Style: Card,{font},{round(h * 0.07)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,{outline + 2},2,8,70,70,{round(h * 0.12)},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    body = []
+    if card:
+        kicker, title = card
+        big = 0.075 if len(title) <= 12 else 0.055 if len(title) <= 18 else 0.042
+        body.append(
+            f"Dialogue: 1,{_fmt_ass(0.05)},{_fmt_ass(card_secs)},Card,,0,0,0,,"
+            f"{{\\fad(120,250)\\fs{round(h * 0.026)}\\c{orange}}}{kicker}\\N"
+            f"{{\\fs{round(h * big)}\\c{white}}}{title}")
+    for g in groups:  # g = [(start, end, token), ...] for one on-screen line
+        for k, (s, e, _tok) in enumerate(g):
+            end = g[k + 1][0] if k + 1 < len(g) else e + 0.15
+            parts = [(f"{{\\c{orange}}}{t}{{\\c{white}}}" if j == k else t)
+                     for j, (_, _, t) in enumerate(g)]
+            body.append(f"Dialogue: 0,{_fmt_ass(s)},{_fmt_ass(end)},Caption,,0,0,0,,"
+                        f"{' '.join(parts)}")
+    path.write_text(header + "\n".join(body) + "\n", encoding="utf-8")
+
+
 def generate_from_timings(scenes: list[tuple[list, float, str]], out_dir: Path,
                           stem: str, w: int, h: int, cfg: dict,
-                          lang: str = "en") -> dict:
+                          lang: str = "en", highlight: bool = False,
+                          card: tuple[str, str] | None = None) -> dict:
     """Captions straight from TTS word timings (no speech recognition).
     scenes: (word_timings, start_offset_seconds, narration_text) per scene."""
     cap_cfg = cfg.get("captions", {})
@@ -148,15 +191,20 @@ def generate_from_timings(scenes: list[tuple[list, float, str]], out_dir: Path,
     font = cap_cfg.get("font", "Arial") if lang == "en" else cap_cfg.get("te_font", "Noto Sans Telugu")
 
     all_chunks: list[Chunk] = []
+    groups: list[list] = []
     for timings, offset, text in scenes:
         words = _tokens_with_punctuation(timings, text)
         if words:
             all_chunks.extend(_chunk_words(words, offset, max_words))
+            shifted = [(s + offset, e + offset, t) for s, e, t in words]
+            groups.extend(shifted[i:i + max_words] for i in range(0, len(shifted), max_words))
 
     srt = out_dir / f"{stem}.srt"
     ass = out_dir / f"{stem}.ass"
     _write_srt(all_chunks, srt)
-    if lang == "en":
+    if highlight:
+        _write_ass_highlight(groups, ass, w, h, font, 1.3 if lang != "en" else 1.0, card)
+    elif lang == "en":
         _write_ass(all_chunks, ass, w, h, font)
     else:
         _write_ass(all_chunks, ass, w, h, font, upper=False, spacing=0.0, size_scale=1.3)
