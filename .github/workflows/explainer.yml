@@ -21,8 +21,8 @@ on:
         description: "a specific product, for testing (optional)"
         default: ""
       look:
-        description: "stylized = game-engine look + step labels (trial), blank = normal"
-        default: ""
+        description: "stylized (default) = game-engine look + step labels, classic = old look"
+        default: "stylized"
       dry_run:
         description: "render only, do not upload"
         type: boolean
