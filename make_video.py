@@ -46,6 +46,11 @@ EN_STYLE_REEL = ("Narrate like a friendly, expressive storyteller speaking to ca
 EXPLAINER_ART_STYLE = ("3D render, clean studio lighting, realistic materials, detailed "
                        "cutaway view, shallow depth of field, vibrant colors, no text, no "
                        "watermark")
+# look: stylized (trial) - closer to the game-engine explainer reels
+EXPLAINER_ART_STYLE_STYLIZED = ("stylized 3D game-engine render, clean toy-like low-poly models, "
+                                "soft pastel colors, bright even lighting, cutaway cross-section "
+                                "view, isometric camera, simple clean background, no text, no "
+                                "watermark")
 # Telugu Shorts are drawn like the drama episodes (cleaner faces than the painterly look).
 SHORT_ART_STYLE = ("Pixar-style 3D animated film still, glossy, warm cinematic lighting, "
                    "dramatic, simple clean composition, no text")
@@ -125,6 +130,7 @@ def main() -> int:
                             engine=engine, lang=lang)
     use_edge = voice_name.startswith(EDGE_PREFIX)
     explainer = script.format == "explainer"
+    stylized = explainer and script.meta.get("look") == "stylized"
     # Telugu Shorts and "how it's made" explainers: a new picture every ~2 s, half of it
     # real moving stock clips, big camera moves.
     mixed_short = args.short and (lang != "en" or explainer)
@@ -225,6 +231,7 @@ def main() -> int:
     scene_finals: list[Path] = []
     scene_durations: list[float] = []
     scene_wavs: list[tuple[Path, float]] = []
+    scene_labels: list[tuple[float, float, str]] = []  # (start, end, step name) per scene
     scene_timings: list[tuple[list | None, float, str]] = []
     first_asset: Asset | None = None
     sources: set[str] = set()
@@ -271,7 +278,8 @@ def main() -> int:
                         p = illustrate.generate(
                             prompt, workdir / f"art_{i:02d}_{j}.jpg", portrait=(w < h),
                             model=art_model, steps=art_steps, seed=1000 * i + j,
-                            style=(EXPLAINER_ART_STYLE if explainer
+                            style=((EXPLAINER_ART_STYLE_STYLIZED if stylized
+                                    else EXPLAINER_ART_STYLE) if explainer
                                    else SHORT_ART_STYLE if mixed_short else None))
                         made.append(Asset(p, "image", prompt, "ai"))
                     except PipelineError as e:
@@ -310,6 +318,7 @@ def main() -> int:
         scene_durations.append(dur)
         scene_wavs.append((wav, running))
         scene_timings.append((timings, running, scene.narration))
+        scene_labels.append((running, running + dur, scene.heading))
         running += dur
 
     # Every video and Short ends on the same like/share/subscribe card -
@@ -334,8 +343,9 @@ def main() -> int:
             print("[captions] from the voice's own word timings ...")
             card = ((script.meta.get("card_kicker", ""), script.meta.get("card_title", ""))
                     if explainer and script.meta.get("card_title") else None)
-            cap = captions.generate_from_timings(scene_timings, workdir, slug, w, h,
-                                                 cfg, lang, highlight=explainer, card=card)
+            cap = captions.generate_from_timings(
+                scene_timings, workdir, slug, w, h, cfg, lang, highlight=explainer, card=card,
+                labels=scene_labels if stylized else None)
         else:
             print("[captions] transcribing narration ...")
             cap = captions.generate(scene_wavs, workdir, slug, w, h, cfg)

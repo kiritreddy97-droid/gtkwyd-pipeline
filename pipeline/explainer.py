@@ -31,6 +31,9 @@ No medical, financial or political content.
 
 LANGUAGE: {language_rule}
 
+HEADINGS: each scene's "heading" is the step name in 1 to 3 words in the narration language
+(shown big at the top of the screen, e.g. "Melting", "Shaping", "Cooling").
+
 PICTURES: each scene's "image_prompts" are 2 ENGLISH descriptions of two different moments of
 that step, as a clean 3D render. They must be LITERAL: name the product or material in every
 prompt and show exactly what the sentence says (for example "a yellow wooden pencil lying on a
@@ -112,9 +115,11 @@ _CARD = {
 }
 
 
-def to_markdown(data: dict, lang: str) -> str:
+def to_markdown(data: dict, lang: str, look: str = "") -> str:
     md = writer_te.to_markdown(data)
     card = dict(_CARD[lang])
+    if look:
+        card["look"] = look
     card["card_title"] = " ".join(str(data.get("thumb_text") or data.get("title_en", "")).split())[:28]
     extra = "\n".join([f"lang: {lang}", "format: explainer"]
                       + [f"{k}: {v}" for k, v in card.items()])

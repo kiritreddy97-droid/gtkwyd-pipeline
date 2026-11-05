@@ -17,6 +17,12 @@ on:
       lang:
         description: "en, te or both"
         default: "both"
+      topic:
+        description: "a specific product, for testing (optional)"
+        default: ""
+      look:
+        description: "stylized = game-engine look + step labels (trial), blank = normal"
+        default: ""
       dry_run:
         description: "render only, do not upload"
         type: boolean
@@ -124,7 +130,7 @@ jobs:
             DRY=false
           fi
           if [ "$DRY" = "true" ]; then
-            python explainer_daily.py --lang "$LANGS" --dry-run
+            python explainer_daily.py --lang "$LANGS" --dry-run --topic "${{ inputs.topic }}" --look "${{ inputs.look }}"
           else
             python explainer_daily.py --lang "$LANGS"
           fi

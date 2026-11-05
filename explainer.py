@@ -19,7 +19,7 @@ TOPICS = ROOT / "topics-explainers.txt"
 OUT = ROOT / "scripts" / "_generated-explainers"
 
 
-def build(lang: str, topic: str = "") -> dict | None:
+def build(lang: str, topic: str = "", look: str = "") -> dict | None:
     """Write + render one explainer. Returns {"video", "slug", "topic", "data"} or None
     (nothing to do / a failure that was logged)."""
     if not writer_te.available():
@@ -46,7 +46,7 @@ def build(lang: str, topic: str = "") -> dict | None:
     OUT.mkdir(parents=True, exist_ok=True)
     slug = f"{slugify(data.get('title_en') or topic)[:44]}-{lang}-{uuid.uuid4().hex[:5]}"
     script = OUT / f"{slug}.md"
-    script.write_text(explainer.to_markdown(data, lang), encoding="utf-8")
+    script.write_text(explainer.to_markdown(data, lang, look), encoding="utf-8")
     print(f"[explainer] {lang}: {data.get('title_en') or topic} -> {script.name}")
     rc = subprocess.run([sys.executable, "make_video.py", str(script), "--short"],
                         cwd=str(ROOT)).returncode

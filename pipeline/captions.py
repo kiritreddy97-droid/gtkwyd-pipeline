@@ -136,7 +136,8 @@ def _tokens_with_punctuation(timings: list, text: str) -> list:
 
 def _write_ass_highlight(groups: list[list], path: Path, w: int, h: int, font: str,
                          size_scale: float, card: tuple[str, str] | None,
-                         card_secs: float = 2.8) -> None:
+                         card_secs: float = 2.8,
+                         labels: list[tuple[float, float, str]] | None = None) -> None:
     """Explainer-style captions: a short line of 2-3 words with the word being spoken in
     orange, plus an optional opening title card (small orange kicker + big white title)."""
     fontsize = round(h * 0.05 * size_scale)
@@ -153,6 +154,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,{font},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,{outline},1,2,80,80,{margin_v},1
+Style: Label,{font},{round(h * 0.052 * size_scale)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,{outline + 1},2,8,60,60,{round(h * 0.1)},1
 Style: Card,{font},{round(h * 0.07)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,{outline + 2},2,8,70,70,{round(h * 0.12)},1
 
 [Events]
@@ -166,6 +168,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             f"Dialogue: 1,{_fmt_ass(0.05)},{_fmt_ass(card_secs)},Card,,0,0,0,,"
             f"{{\\fad(120,250)\\fs{round(h * 0.036)}\\c{orange}}}{kicker}\\N"
             f"{{\\fs{round(h * big)}\\c{white}}}{title}")
+    # big step name at the top of each scene (the first scene shows the title card instead)
+    for k, (s, e, text) in enumerate(labels or []):
+        if (k == 0 and card) or not str(text).strip():
+            continue
+        body.append(f"Dialogue: 1,{_fmt_ass(s + 0.05)},{_fmt_ass(e - 0.1)},Label,,0,0,0,,"
+                    f"{{\\fad(150,150)}}{str(text).strip().upper() if font != 'Noto Sans Telugu' else str(text).strip()}")
     for g in groups:  # g = [(start, end, token), ...] for one on-screen line
         for k, (s, e, _tok) in enumerate(g):
             end = g[k + 1][0] if k + 1 < len(g) else e + 0.15
@@ -179,7 +187,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 def generate_from_timings(scenes: list[tuple[list, float, str]], out_dir: Path,
                           stem: str, w: int, h: int, cfg: dict,
                           lang: str = "en", highlight: bool = False,
-                          card: tuple[str, str] | None = None) -> dict:
+                          card: tuple[str, str] | None = None,
+                          labels: list[tuple[float, float, str]] | None = None) -> dict:
     """Captions straight from TTS word timings (no speech recognition).
     scenes: (word_timings, start_offset_seconds, narration_text) per scene."""
     cap_cfg = cfg.get("captions", {})
@@ -203,7 +212,8 @@ def generate_from_timings(scenes: list[tuple[list, float, str]], out_dir: Path,
     ass = out_dir / f"{stem}.ass"
     _write_srt(all_chunks, srt)
     if highlight:
-        _write_ass_highlight(groups, ass, w, h, font, 1.3 if lang != "en" else 1.0, card)
+        _write_ass_highlight(groups, ass, w, h, font, 1.3 if lang != "en" else 1.0, card,
+                             labels=labels)
     elif lang == "en":
         _write_ass(all_chunks, ass, w, h, font)
     else:
