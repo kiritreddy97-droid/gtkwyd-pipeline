@@ -59,11 +59,11 @@ def _done_today(lang: str) -> bool:
     return False
 
 
-def run(lang: str, dry_run: bool, topic: str = "", look: str = "") -> int:
+def run(lang: str, dry_run: bool, topic: str = "", look: str = "stylized") -> int:
     cfg = load_config()
     if _done_today(lang) and not dry_run:
         log(f"[explainer-{lang}] already uploaded today - skipping"); return 0
-    res = build(lang, topic, look)
+    res = build(lang, topic, "" if look == "classic" else look)
     if not res:
         log(f"[explainer-{lang}] nothing rendered"); return 1
     slug, video, data = res["slug"], res["video"], res["data"]
@@ -112,7 +112,8 @@ def main() -> int:
     ap.add_argument("--lang", choices=("en", "te", "both"), default="both")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--topic", default="", help="a specific product (testing)")
-    ap.add_argument("--look", default="", help="'stylized' = game-engine look + step labels (trial)")
+    ap.add_argument("--look", default="stylized",
+                    help="'stylized' (default) = game-engine look + step labels; 'classic' = old look")
     args = ap.parse_args()
     rc = 0
     for lang in (("en", "te") if args.lang == "both" else (args.lang,)):
