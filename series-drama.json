@@ -1,89 +1,23 @@
 {
- "season": 2,
+ "season": 3,
  "characters": [
   {
-   "name": "Appanna",
+   "name": "Ramu",
    "gender": "male",
-   "look": "Appanna, a 65-year-old Indian man with a round friendly face, deep laugh lines, short neatly combed white hair, a thick white mustache, wearing a crisp white cotton shirt and light grey veshti"
+   "look": "A cheerful 10-year-old South Indian village boy with dark curly hair, bright expressive brown eyes, wearing a simple yellow cotton shirt and blue shorts."
   },
   {
-   "name": "Chitti",
+   "name": "Bamma",
    "gender": "female",
-   "look": "Chitti, a lively 10-year-old Indian girl with bright expressive eyes, long black hair tied in two pigtails with red ribbons, wearing a bright yellow cotton dress"
+   "look": "A warm 65-year-old South Indian grandmother with gray hair tied in a neat bun, wearing a traditional maroon cotton saree with a golden border and round spectacles."
   }
  ],
  "episodes": [
   {
    "n": 1,
-   "title": "రిపోర్ట్ కార్డ్ రహస్యం",
-   "title_en": "The Report Card Secret",
-   "summary": "Appanna tries to inspect a hidden item under a plate, believing it to be a sweet box. Chitti panics and reveals it is actually her report card containing a zero in math just as her father arrives."
-  },
-  {
-   "n": 2,
-   "title": "లెక్కల చిక్కులు",
-   "title_en": "Math Troubles",
-   "summary": "Chitti and Appanna frantically try to hide the failed math report card before her father enters the room. Just as they manage to cover it under the sweet box, her father reaches directly for the box."
-  },
-  {
-   "n": 3,
-   "title": "తండ్రి చేతిలో తీపి తినుబండారం",
-   "title_en": "The Sweet Box Secret",
-   "summary": "Appanna and Chitti successfully convince her father not to touch the sweet box by pretending flies got into it. However, while trying to hide the report card, it slips onto the floor right in front of her father."
-  },
-  {
-   "n": 4,
-   "title": "తాతా బిడ్డల జిత్తులు",
-   "title_en": "Grandpa and Kid's Tricks",
-   "summary": "Appanna tries to stomp on the fallen math report card to hide it from Chitti's father, making wild excuses about a sore foot and a lost coin. Despite their chaotic efforts, Chitti's father bends down and picks up the report card right from under Appanna's hands."
-  },
-  {
-   "n": 5,
-   "title": "తాతా మనవరాలి దొంగాట",
-   "title_en": "Grandpa and Granddaughter's Secret Game",
-   "summary": "As Chitti's father unfolds the report card, Appanna tries one last absurd excuse to claim the zero mark is actually a drawing of spectacles. Unexpectedly, Chitti's father looks at the paper and bursts into laughter, leaving both Chitti and Appanna in complete shock."
-  },
-  {
-   "n": 6,
-   "title": "నవ్వుల రహస్యం",
-   "title_en": "The Laughter Secret",
-   "summary": "Appanna and Chitti are stunned when Chitti's father laughs because he also scored zero in his childhood. As they share a happy moment, a sudden new sound at the door creates a fresh surprise."
-  },
-  {
-   "n": 7,
-   "title": "తలుపు వెనుక ఎవరు?",
-   "title_en": "Who is Behind the Door?",
-   "summary": "As Appanna and Chitti panic about the knock at the door, they quickly hide the report card again. Upon opening the door, Appanna and Chitti are stunned to see Chitti's math teacher standing right outside with a bag."
-  },
-  {
-   "n": 8,
-   "title": "మాథ్స్ టీచర్ రావడమా?",
-   "title_en": "The Math Teacher Arrives",
-   "summary": "Appanna and Chitti are terrified when Chitti's math teacher enters their home carrying a mysterious cloth bag. As they fear the worst about her failed marks, the teacher reaches inside the bag to pull out a large book."
-  },
-  {
-   "n": 9,
-   "title": "మాస్టార్ గారితో చిక్కులు",
-   "title_en": "Trouble with the Teacher",
-   "summary": "The math teacher pulls out a large book from his cloth bag, filling Appanna and Chitti with extreme fear about her exam results. However, instead of a report card, the teacher reveals old drawings made by Chitti's father during his childhood, leaving everyone shocked."
-  },
-  {
-   "n": 10,
-   "title": "తండ్రి చిన్ననాటి రహస్యం",
-   "title_en": "Father's Childhood Secret",
-   "summary": "Appanna and Chitti inspect the old sketchbook brought by the teacher and discover a surprising note about a competition prize. Just as they begin to read the letter, Chitti's father approaches the room, threatening to catch them red-handed."
-  },
-  {
-   "n": 11,
-   "title": "తండ్రి రహస్యం బయటపడింది",
-   "title_en": "Father's Secret Revealed",
-   "summary": "Appanna and Chitti discover that Chitti's father was actually a school drawing champion who also failed in math. Just as they celebrate having leverage over him, a tall shadow looms over them from behind."
-  },
-  {
-   "n": 12,
-   "title": "నాన్న గారి రహస్యం",
-   "title_en": "Nanna Gari Rahasyam",
-   "summary": "Appanna and Chitti reveal the father's old secret to him, turning tension into joyful laughter. The family happily accepts their past mistakes and celebrates together in a warm finale."
+   "title": "మాయా మట్టి పాత్ర",
+   "title_en": "The Secret Clay Pot",
+   "summary": "Young Ramu finds an old mysterious clay pot hidden in his grandmother's house and decides to open it despite her warnings. As he lifts the lid, a mysterious golden light pours out, leaving his grandmother in complete shock."
   }
  ]
 }
