@@ -62,3 +62,39 @@ a set of piano keys
 a fiberglass surfboard
 a carbon fiber bicycle frame
 a box of crayons
+
+# auto-added by Gemini
+a cardboard box
+a dishwasher tablet
+an incandescent light bulb
+a tube of toothpaste
+a standard staple
+a velcro strap
+an acoustic guitar string
+a tennis ball
+a mechanical pencil
+a paperclip
+a key and tumbler lock
+a tin can
+an umbrella
+a bar of soap
+a coffee filter
+a rubber band
+a sponge
+a postage stamp
+a drinking straw
+a sewing needle
+a clothespin
+a pushpin
+a twist tie
+an alkaline battery
+a staple remover
+a bubble wrap sheet
+a toaster heating element
+a friction lighter
+a retractable measuring tape
+a hand sanitizer pump
+a pencil sharpener
+a safety pin
+a metal snap fastener
+a mechanical watch gear
